@@ -5,8 +5,8 @@ import math
 
 # Types
 from xlwings import Book
-from typing import List, Dict, Optional, Tuple, Literal
-from .maps import *
+from typing import List, Dict, Optional, Tuple
+from .models.maps import *
 from .models import *
 
 from .utils import (
