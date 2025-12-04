@@ -47,6 +47,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["light", "standard", "verbose"],
         help="Extraction detail level",
     )
+    parser.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print JSON output (indent=2). Default is compact JSON.",
+    )
     return parser
 
 
@@ -76,6 +81,7 @@ def main(argv: list[str] | None = None) -> int:
             pdf=args.pdf,
             dpi=args.dpi,
             mode=args.mode,
+            pretty=args.pretty,
         )
         return 0
     except Exception as e:

@@ -25,10 +25,11 @@ def dict_without_empty_values(obj: Any):
     return obj
 
 
-def save_as_json(model: WorkbookData, path: Path) -> None:
+def save_as_json(model: WorkbookData, path: Path, *, pretty: bool = False, indent: int | None = None) -> None:
     filtered_dict = dict_without_empty_values(model)
+    indent_val = 2 if pretty and indent is None else indent
     path.write_text(
-        json.dumps(filtered_dict, ensure_ascii=False, indent=2),
+        json.dumps(filtered_dict, ensure_ascii=False, indent=indent_val),
         encoding="utf-8",
     )
 
@@ -72,7 +73,7 @@ def _sanitize_sheet_filename(name: str) -> str:
     return safe or "sheet"
 
 
-def save_sheets_as_json(workbook: WorkbookData, output_dir: Path) -> Dict[str, Path]:
+def save_sheets_as_json(workbook: WorkbookData, output_dir: Path, *, pretty: bool = False, indent: int | None = None) -> Dict[str, Path]:
     """
     Save each sheet as an individual JSON file.
     Contents include book_name and the sheet's SheetData.
@@ -90,7 +91,8 @@ def save_sheets_as_json(workbook: WorkbookData, output_dir: Path) -> Dict[str, P
         )
         file_name = f"{_sanitize_sheet_filename(sheet_name)}.json"
         path = output_dir / file_name
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        indent_val = 2 if pretty and indent is None else indent
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=indent_val), encoding="utf-8")
         written[sheet_name] = path
     return written
 
@@ -99,6 +101,9 @@ def save_sheets(
     workbook: WorkbookData,
     output_dir: Path,
     fmt: Literal["json", "yaml", "yml", "toon"] = "json",
+    *,
+    pretty: bool = False,
+    indent: int | None = None,
 ) -> Dict[str, Path]:
     """
     Save each sheet as an individual file in the specified format (json/yaml/toon).
@@ -125,7 +130,8 @@ def save_sheets(
         path = output_dir / file_name
         match format_hint:
             case "json":
-                text = json.dumps(payload, ensure_ascii=False, indent=2)
+                indent_val = 2 if pretty and indent is None else indent
+                text = json.dumps(payload, ensure_ascii=False, indent=indent_val)
             case "yaml":
                 yaml = _require_yaml()
                 text = yaml.safe_dump(

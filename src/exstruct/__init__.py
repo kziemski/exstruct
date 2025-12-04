@@ -39,13 +39,16 @@ def export(
     data: WorkbookData,
     path: str | Path,
     fmt: Optional[Literal["json", "yaml", "yml", "toon"]] = None,
+    *,
+    pretty: bool = False,
+    indent: int | None = None,
 ) -> None:
     """Export WorkbookData to supported file formats (json/yaml/toon)."""
     dest = Path(path)
     format_hint = (fmt or dest.suffix.lstrip(".") or "json").lower()
     match format_hint:
         case "json":
-            save_as_json(data, dest)
+            save_as_json(data, dest, pretty=pretty, indent=indent)
         case "yaml" | "yml":
             save_as_yaml(data, dest)
         case "toon":
@@ -66,11 +69,14 @@ def export_sheets_as(
     data: WorkbookData,
     dir_path: str | Path,
     fmt: Literal["json", "yaml", "yml", "toon"] = "json",
+    *,
+    pretty: bool = False,
+    indent: int | None = None,
 ) -> dict[str, Path]:
     """
     Export each sheet in the given format (json/yaml/toon), including book_name and SheetData; returns sheet name → path map.
     """
-    return save_sheets(data, Path(dir_path), fmt=fmt)
+    return save_sheets(data, Path(dir_path), fmt=fmt, pretty=pretty, indent=indent)
 
 
 def process_excel(
@@ -81,6 +87,8 @@ def process_excel(
     pdf: bool = False,
     dpi: int = 72,
     mode: ExtractionMode = "standard",
+    pretty: bool = False,
+    indent: int | None = None,
 ) -> None:
     """Convenience wrapper for CLI: export workbook and optionally PDF/PNG images (Excel required for rendering)."""
     if mode not in ("light", "standard", "verbose"):
@@ -88,7 +96,7 @@ def process_excel(
     workbook_model = extract(file_path, mode=mode)
     match out_fmt:
         case "json":
-            save_as_json(workbook_model, output_path)
+            save_as_json(workbook_model, output_path, pretty=pretty, indent=indent)
         case "yaml" | "yml":
             save_as_yaml(workbook_model, output_path)
         case "toon":
