@@ -11,11 +11,12 @@ from ..models.maps import MSO_AUTO_SHAPE_TYPE_MAP, MSO_SHAPE_TYPE_MAP
 
 
 def compute_line_angle_deg(w: float, h: float) -> float:
-    """Compute clockwise angle in Excel coordinates with 0 deg = East."""
+    """Compute clockwise angle in Excel coordinates where 0 deg points East."""
     return math.degrees(math.atan2(h, w)) % 360.0
 
 
 def angle_to_compass(angle: float) -> str:
+    """Convert angle to 8-point compass direction."""
     dirs = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"]
     idx = int(((angle + 22.5) % 360) // 45)
     return dirs[idx]
@@ -24,6 +25,8 @@ def angle_to_compass(angle: float) -> str:
 def coord_to_cell_by_edges(
     row_edges: List[float], col_edges: List[float], x: float, y: float
 ) -> Optional[str]:
+    """Estimate cell address from coordinates and cumulative edges; return None if out of range."""
+
     def find_index(edges, pos):
         for i in range(1, len(edges)):
             if edges[i - 1] <= pos < edges[i]:
@@ -38,7 +41,7 @@ def coord_to_cell_by_edges(
 
 
 def has_arrow(style_val) -> bool:
-    """Detect presence of an arrowhead based on Excel arrow style value."""
+    """Return True if Excel arrow style value indicates an arrowhead."""
     try:
         v = int(style_val)
         return v != 0
@@ -68,6 +71,7 @@ def iter_shapes_recursive(shp):
 
 
 def get_shapes_with_position(workbook: Book) -> Dict[str, List[Shape]]:
+    """Scan shapes in a workbook and return per-sheet Shape lists with position info."""
     shape_data: Dict[str, List[Shape]] = {}
     for sheet in workbook.sheets:
         shapes: List[Shape] = []
@@ -105,7 +109,9 @@ def get_shapes_with_position(workbook: Book) -> Dict[str, List[Shape]]:
                 except Exception:
                     text = ""
 
-                if autoshape_type_str in ["Mixed"] and text == "":
+                if (autoshape_type_str in ["Mixed"] and text == "") or (
+                    shape_type_str == "Group" and text == ""
+                ):
                     continue
 
                 shape_obj = Shape(
