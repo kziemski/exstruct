@@ -143,8 +143,9 @@ pydantic 構造が必ず仕様どおりであることを検証する。
 - [EXP-01] 空値（None, "", [], {}）は dict_without_empty_values により除外される
 - [EXP-02] JSON 出力が UTF-8 で行われる
 - [EXP-03] YAML 出力が sort_keys=False で行われる
-- [EXP-04] TOML 出力がバイナリ書き込みで正しく生成される
+- [EXP-04] TOON 出力がバイナリ書き込みで正しく生成される
 - [EXP-05] WorkbookData → JSON → WorkbookData の round-trip が破壊的変更なし
+- [EXP-06] export_sheets でシートごとにファイルが出力される
 
 ---
 
