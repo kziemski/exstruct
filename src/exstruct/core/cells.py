@@ -17,6 +17,7 @@ from ..models import CellRow
 
 logger = logging.getLogger(__name__)
 _warned_keys: set[str] = set()
+TABLE_SCORE_THRESHOLD = 0.35
 
 
 def warn_once(key: str, message: str) -> None:
@@ -360,6 +361,101 @@ def _is_plausible_table(matrix) -> bool:
     return rows_with_two >= 2 and cols_with_two >= 2
 
 
+def _nonempty_clusters(matrix: List[List]) -> List[Tuple[int, int, int, int]]:
+    """Return bounding boxes of connected components of nonempty cells (4-neighbor)."""
+    if not matrix:
+        return []
+    rows = len(matrix)
+    cols = max(len(r) for r in matrix) if rows else 0
+    grid = [[False] * cols for _ in range(rows)]
+    for i, row in enumerate(matrix):
+        for j in range(cols):
+            v = row[j] if j < len(row) else None
+            if not (v is None or str(v).strip() == ""):
+                grid[i][j] = True
+    visited = [[False] * cols for _ in range(rows)]
+    boxes: List[Tuple[int, int, int, int]] = []
+
+    def bfs(sr: int, sc: int):
+        q = deque([(sr, sc)])
+        visited[sr][sc] = True
+        ys = [sr]
+        xs = [sc]
+        while q:
+            r, c = q.popleft()
+            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] and not visited[nr][nc]:
+                    visited[nr][nc] = True
+                    q.append((nr, nc))
+                    ys.append(nr)
+                    xs.append(nc)
+        return min(ys), min(xs), max(ys), max(xs)
+
+    for i in range(rows):
+        for j in range(cols):
+            if grid[i][j] and not visited[i][j]:
+                boxes.append(bfs(i, j))
+    return boxes
+
+
+def _normalize_matrix(matrix) -> List[List]:
+    if matrix is None:
+        return []
+    if not isinstance(matrix, list):
+        return [[matrix]]
+    if matrix and not isinstance(matrix[0], list):
+        return [matrix]
+    return matrix
+
+
+def _header_like_row(row: List) -> bool:
+    nonempty = [v for v in row if not (v is None or str(v).strip() == "")]
+    if len(nonempty) < 2:
+        return False
+    str_like = 0
+    num_like = 0
+    for v in nonempty:
+        s = str(v)
+        if _INT_RE.match(s) or _FLOAT_RE.match(s):
+            num_like += 1
+        else:
+            str_like += 1
+    return str_like >= num_like and str_like >= 1
+
+
+def _table_signal_score(matrix: List[List]) -> float:
+    density, coverage = _table_density_metrics(matrix)
+    header = any(_header_like_row(r) for r in matrix[:2])  # check first 2 rows
+
+    rows = len(matrix)
+    cols = max((len(r) if isinstance(r, list) else 1) for r in matrix) if rows else 0
+    row_counts = []
+    col_counts = [0] * cols if cols else []
+    for r in matrix:
+        if not isinstance(r, list):
+            r = [r]
+        cnt = 0
+        for j in range(cols):
+            v = r[j] if j < len(r) else None
+            if not (v is None or str(v).strip() == ""):
+                cnt += 1
+                if j < len(col_counts):
+                    col_counts[j] += 1
+        row_counts.append(cnt)
+    rows_with_two = sum(1 for c in row_counts if c >= 2)
+    cols_with_two = sum(1 for c in col_counts if c >= 2)
+    structure_score = 0.1 if (rows_with_two >= 2 and cols_with_two >= 2) else 0.0
+
+    score = density
+    if header:
+        score += 0.2
+    if coverage > 0.5:
+        score += 0.1
+    score += structure_score
+    return score
+
+
 def shrink_to_content_openpyxl(
     ws,
     top: int,
@@ -631,14 +727,14 @@ def detect_tables_xlwings(sheet: xw.Sheet) -> List[str]:
         if not merged:
             merged_rects.append(rect)
 
+    dedup: set[str] = set()
     for top_row, left_col, bottom_row, right_col in merged_rects:
         top_row, left_col, bottom_row, right_col = shrink_to_content(
             sheet, top_row, left_col, bottom_row, right_col, require_inside_border=False
         )
         try:
             rng_vals = sheet.range((top_row, left_col), (bottom_row, right_col)).value
-            if not isinstance(rng_vals, list):
-                rng_vals = [[rng_vals]]
+            rng_vals = _normalize_matrix(rng_vals)
             nonempty = sum(
                 1
                 for row in rng_vals
@@ -649,13 +745,21 @@ def detect_tables_xlwings(sheet: xw.Sheet) -> List[str]:
             nonempty = 0
         if nonempty < 3:
             continue
-        density, coverage = _table_density_metrics(rng_vals)
-        if density < 0.05 and coverage < 0.2:
-            continue
-        if not _is_plausible_table(rng_vals):
-            continue
-        addr = f"{xw.utils.col_name(left_col)}{top_row}:{xw.utils.col_name(right_col)}{bottom_row}"
-        tables.append(addr)
+        clusters = _nonempty_clusters(rng_vals)
+        for r0, c0, r1, c1 in clusters:
+            sub = [row[c0 : c1 + 1] for row in rng_vals[r0 : r1 + 1]]
+            density, coverage = _table_density_metrics(sub)
+            if density < 0.05 and coverage < 0.2:
+                continue
+            if not _is_plausible_table(sub):
+                continue
+            score = _table_signal_score(sub)
+            if score < TABLE_SCORE_THRESHOLD:
+                continue
+            addr = f"{xw.utils.col_name(left_col + c0)}{top_row + r0}:{xw.utils.col_name(left_col + c1)}{top_row + r1}"
+            if addr not in dedup:
+                dedup.add(addr)
+                tables.append(addr)
     return tables
 
 
@@ -712,6 +816,7 @@ def detect_tables_openpyxl(xlsx_path: Path, sheet_name: str) -> List[str]:
         if not merged:
             merged_rects.append(rect)
 
+    dedup: set[str] = set()
     for top_row, left_col, bottom_row, right_col in merged_rects:
         top_row, left_col, bottom_row, right_col = shrink_to_content_openpyxl(
             ws,
@@ -727,18 +832,27 @@ def detect_tables_openpyxl(xlsx_path: Path, sheet_name: str) -> List[str]:
             min_nonempty_ratio=0.0,
         )
         vals_block = _get_values_block(ws, top_row, left_col, bottom_row, right_col)
+        vals_block = _normalize_matrix(vals_block)
         nonempty = sum(
             1 for row in vals_block for v in row if not (v is None or str(v).strip() == "")
         )
         if nonempty < 3:
             continue
-        density, coverage = _table_density_metrics(vals_block)
-        if density < 0.05 and coverage < 0.2:
-            continue
-        if not _is_plausible_table(vals_block):
-            continue
-        addr = f"{get_column_letter(left_col)}{top_row}:{get_column_letter(right_col)}{bottom_row}"
-        tables.append(addr)
+        clusters = _nonempty_clusters(vals_block)
+        for r0, c0, r1, c1 in clusters:
+            sub = [row[c0 : c1 + 1] for row in vals_block[r0 : r1 + 1]]
+            density, coverage = _table_density_metrics(sub)
+            if density < 0.05 and coverage < 0.2:
+                continue
+            if not _is_plausible_table(sub):
+                continue
+            score = _table_signal_score(sub)
+            if score < TABLE_SCORE_THRESHOLD:
+                continue
+            addr = f"{get_column_letter(left_col + c0)}{top_row + r0}:{get_column_letter(left_col + c1)}{top_row + r1}"
+            if addr not in dedup:
+                dedup.add(addr)
+                tables.append(addr)
     wb.close()
     return tables
 
