@@ -19,3 +19,9 @@ jobs:
       - name: Build and deploy
         run: |
           mkdocs gh-deploy --force
+    permissions:
+      contents: write # gh-pages への push に必要
+      pages: write # （Actions から Pages を使う場合は念のため）
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # mkdocs gh-deploy が参照
