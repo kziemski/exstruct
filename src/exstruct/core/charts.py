@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional
 
-import logging
 import xlwings as xw
 
 from ..models import Chart, ChartSeries
@@ -209,7 +209,7 @@ def get_charts(sheet: xw.Sheet) -> List[Chart]:
 
             title = chart_com.ChartTitle.Text if chart_com.HasTitle else None
         except Exception:
-            print("グラフデータの解析に失敗しました。構造化未対応のグラフです。")
+            logger.warning("Failed to parse chart; returning with error string.")
             title = None
             error = "Failed to build chart JSON structure"
 

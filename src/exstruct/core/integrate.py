@@ -44,14 +44,8 @@ def integrate_sheet_content(
 def extract_workbook(file_path: Path) -> WorkbookData:
     """Extract workbook and return WorkbookData; fallback to cells+tables if Excel COM is unavailable."""
     cell_data = extract_sheet_cells(file_path)
-    try:
-        wb = xw.Book(file_path)
-    except Exception as e:
-        logger.warning(
-            "xlwings/Excel COM is unavailable. Falling back to cells+tables only. "
-            "Shapes and charts will be empty. (%r)",
-            e,
-        )
+
+    def _cells_and_tables_only(reason: str) -> WorkbookData:
         sheets: Dict[str, SheetData] = {}
         for sheet_name, rows in cell_data.items():
             try:
@@ -64,12 +58,27 @@ def extract_workbook(file_path: Path) -> WorkbookData:
                 charts=[],
                 tables=tables,
             )
+        logger.warning(
+            "%s Falling back to cells+tables only; shapes and charts will be empty.",
+            reason,
+        )
         return WorkbookData(book_name=file_path.name, sheets=sheets)
 
     try:
-        shape_data = get_shapes_with_position(wb)
-        merged = integrate_sheet_content(cell_data, shape_data, wb)
+        wb = xw.Book(file_path)
+    except Exception as e:
+        return _cells_and_tables_only(
+            f"xlwings/Excel COM is unavailable. ({e!r})"
+        )
+
+    try:
+        try:
+            shape_data = get_shapes_with_position(wb)
+            merged = integrate_sheet_content(cell_data, shape_data, wb)
+            return WorkbookData(book_name=file_path.name, sheets=merged)
+        except Exception as e:
+            return _cells_and_tables_only(
+                f"Shape extraction failed ({e!r})."
+            )
     finally:
         wb.close()
-
-    return WorkbookData(book_name=file_path.name, sheets=merged)
