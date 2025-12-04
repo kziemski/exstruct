@@ -3,6 +3,8 @@ name = "exstruct"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["excel", "structure", "data", "exstruct"]
 authors = [
     { name = "harumiWeb", email = "ganaharumi@outlook.jp" }
 ]
