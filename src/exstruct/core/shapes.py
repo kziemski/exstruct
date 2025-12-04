@@ -16,8 +16,8 @@ def compute_line_angle_deg(w: float, h: float) -> float:
 
 
 def angle_to_compass(angle: float) -> str:
-    """Convert angle to 8-point compass direction."""
-    dirs = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"]
+    """Convert angle to 8-point compass direction (0deg=E, 45deg=NE, 90deg=N, etc)."""
+    dirs = ["E", "NE", "N", "NW", "W", "SW", "S", "SE"]
     idx = int(((angle + 22.5) % 360) // 45)
     return dirs[idx]
 

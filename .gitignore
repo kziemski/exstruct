@@ -12,3 +12,4 @@ wheels/
 sample/
 output/
 test.py
+.coverage
