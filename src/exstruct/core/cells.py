@@ -557,6 +557,20 @@ def detect_tables_xlwings(sheet: xw.Sheet) -> List[str]:
         top_row, left_col, bottom_row, right_col = shrink_to_content(
             sheet, top_row, left_col, bottom_row, right_col, require_inside_border=False
         )
+        try:
+            rng_vals = sheet.range((top_row, left_col), (bottom_row, right_col)).value
+            if not isinstance(rng_vals, list):
+                rng_vals = [[rng_vals]]
+            nonempty = sum(
+                1
+                for row in rng_vals
+                for v in (row if isinstance(row, list) else [row])
+                if not (v is None or str(v).strip() == "")
+            )
+        except Exception:
+            nonempty = 0
+        if nonempty < 3:
+            continue
         addr = f"{xw.utils.col_name(left_col)}{top_row}:{xw.utils.col_name(right_col)}{bottom_row}"
         tables.append(addr)
     return tables
@@ -623,6 +637,12 @@ def detect_tables_openpyxl(xlsx_path: Path, sheet_name: str) -> List[str]:
             right_edge=right_edge,
             min_nonempty_ratio=0.0,
         )
+        vals_block = _get_values_block(ws, top_row, left_col, bottom_row, right_col)
+        nonempty = sum(
+            1 for row in vals_block for v in row if not (v is None or str(v).strip() == "")
+        )
+        if nonempty < 3:
+            continue
         addr = f"{get_column_letter(left_col)}{top_row}:{get_column_letter(right_col)}{bottom_row}"
         tables.append(addr)
     wb.close()

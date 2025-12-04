@@ -20,6 +20,36 @@ logger = logging.getLogger(__name__)
 _ALLOWED_MODES: set[str] = {"light", "standard", "verbose"}
 
 
+def _find_open_workbook(file_path: Path) -> xw.Book | None:
+    """Return an existing workbook if already open in Excel; otherwise None."""
+    try:
+        for app in xw.apps:
+            for wb in app.books:
+                try:
+                    if Path(wb.fullname).resolve() == file_path.resolve():
+                        return wb
+                except Exception:
+                    continue
+    except Exception:
+        return None
+    return None
+
+
+def _open_workbook(file_path: Path) -> tuple[xw.Book, bool]:
+    """
+    Open workbook:
+    - If already open, reuse and do not close Excel on exit.
+    - Otherwise create invisible Excel (visible=False) and close when done.
+    Returns (workbook, should_close_app).
+    """
+    existing = _find_open_workbook(file_path)
+    if existing:
+        return existing, False
+    app = xw.App(add_book=False, visible=False)
+    wb = app.books.open(str(file_path))
+    return wb, True
+
+
 def integrate_sheet_content(
     cell_data: Dict[str, List[CellRow]],
     shape_data: Dict[str, List[Shape]],
@@ -75,7 +105,7 @@ def extract_workbook(
         return _cells_and_tables_only("Light mode selected.")
 
     try:
-        wb = xw.Book(file_path)
+        wb, close_app = _open_workbook(file_path)
     except Exception as e:
         return _cells_and_tables_only(
             f"xlwings/Excel COM is unavailable. ({e!r})"
@@ -91,4 +121,11 @@ def extract_workbook(
                 f"Shape extraction failed ({e!r})."
             )
     finally:
-        wb.close()
+        # Close only if we created the app to avoid shutting user sessions.
+        try:
+            if close_app:
+                app = wb.app
+                wb.close()
+                app.quit()
+        except Exception:
+            pass
