@@ -96,7 +96,7 @@ To show how well exstruct can structure Excel, we parse a workbook that combines
 - Flowchart built only with shapes
 
 (Screenshot below is the actual sample Excel sheet)
-![sample-excel](./docs/assets/demo_sheet.png)
+<img width="1842" height="1242" alt="スクリーンショット 2025-12-04 221252" src="https://github.com/user-attachments/assets/37ffcb3d-121e-47c1-a59f-0497337c85d9" />
 
 ### 1. Input: Excel Sheet Overview
 
