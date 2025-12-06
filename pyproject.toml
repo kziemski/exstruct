@@ -44,3 +44,10 @@ Homepage = "https://harumiweb.github.io/exstruct/"
 Repository = "https://github.com/harumiWeb/exstruct"
 Issues = "https://github.com/harumiWeb/exstruct/issues"
 Documentation = "https://harumiweb.github.io/exstruct/"
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+    "*/test_*.py",
+    "*/gen_py/*",
+]

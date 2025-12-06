@@ -41,6 +41,8 @@ ExStruct のテストは以下のカテゴリに分類される：
 - [CEL-05] Unicode（絵文字、日本語、異体字）セルの読み取り
 - [CEL-06] Pandas 読み込みによる dtype=string 強制が守られている
 - [CEL-07] セル範囲が大きいファイルでも 1 万セル程度で性能問題がない
+- [CEL-08] `_coerce_numeric_preserve_format` が整数・小数・非数値を正しく判定する
+- [CEL-09] `detect_tables_openpyxl` が openpyxl の Table オブジェクトを検出できる
 
 ---
 
@@ -205,3 +207,6 @@ pydantic 構造が必ず仕様どおりであることを検証する。
 - [MODE-05] `process_excel` でモード指定が伝搬し、PDF/画像オプション併用でも正常終了する
 - [MODE-06] `standard` モードで既存フィクスチャの出力に回帰がない（不要な図形が増えない）
 - [MODE-07] 無効なモード値は処理開始前にエラーとなる
+- [INT-01] COM オープン失敗時に `extract_workbook` がセル＋テーブル候補のみを返すフォールバックを行う
+- [IO-05] `dict_without_empty_values` が None/空リスト/空辞書/空文字列を除去しネスト構造を保持する
+- [RENDER-01] Excel+COM+pypdfium2 環境で PDF/PNG を出力できるスモークテスト（環境変数でオンオフ可能）
