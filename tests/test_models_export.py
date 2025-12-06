@@ -6,7 +6,7 @@ import pytest
 from exstruct.models import CellRow, SheetData, WorkbookData
 
 
-HAS_PYYAML = util.find_spec("pyyaml") is not None
+HAS_PYYAML = util.find_spec("yaml") is not None
 HAS_TOON = util.find_spec("toon") is not None
 
 

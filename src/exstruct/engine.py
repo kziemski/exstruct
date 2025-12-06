@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional, TextIO
+from contextlib import contextmanager
 
 from .core.integrate import extract_workbook
+from .core import cells as _cells
 from .core.cells import set_table_detection_params
 from .io import save_as_json, save_as_toon, save_as_yaml, save_sheets, serialize_workbook
 from .models import SheetData, WorkbookData
@@ -96,6 +98,21 @@ class ExStructEngine:
         if self.options.table_params:
             set_table_detection_params(**self.options.table_params)
 
+    @contextmanager
+    def _table_params_scope(self):
+        """
+        Temporarily apply table_params and restore previous global config afterward.
+        """
+        if not self.options.table_params:
+            yield
+            return
+        prev = dict(_cells._DETECTION_CONFIG)  # type: ignore[attr-defined]
+        set_table_detection_params(**self.options.table_params)
+        try:
+            yield
+        finally:
+            set_table_detection_params(**prev)
+
     def _filter_sheet(self, sheet: SheetData) -> SheetData:
         return SheetData(
             rows=sheet.rows if self.output.include_rows else [],
@@ -116,8 +133,8 @@ class ExStructEngine:
         chosen_mode = mode or self.options.mode
         if chosen_mode not in ("light", "standard", "verbose"):
             raise ValueError(f"Unsupported mode: {chosen_mode}")
-        self._apply_table_params()
-        return extract_workbook(Path(file_path), mode=chosen_mode)
+        with self._table_params_scope():
+            return extract_workbook(Path(file_path), mode=chosen_mode)
 
     def serialize(
         self,
