@@ -1,4 +1,3 @@
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -6,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import xlwings as xw
+from openpyxl import Workbook
 
 
 def _excel_available() -> bool:
@@ -35,15 +35,32 @@ def _toon_available() -> bool:
         return False
 
 
-def _copy_sample_excel(tmp_path: Path) -> Path:
+def _prepare_sample_excel(tmp_path: Path) -> Path:
+    """
+    Prepare a minimal Excel workbook for CLI tests.
+    - If repo sample exists, copy it.
+    - Otherwise, generate a tiny workbook with openpyxl.
+    """
     sample = Path("sample") / "sample.xlsx"
     dest = tmp_path / "sample.xlsx"
-    shutil.copy(sample, dest)
+    if sample.exists():
+        import shutil
+
+        shutil.copy(sample, dest)
+        return dest
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Sheet1"
+    ws.append(["A", "B"])
+    ws.append([1, 2])
+    wb.save(dest)
+    wb.close()
     return dest
 
 
 def test_CLIでjson出力が成功する(tmp_path: Path) -> None:
-    xlsx = _copy_sample_excel(tmp_path)
+    xlsx = _prepare_sample_excel(tmp_path)
     out_json = tmp_path / "out.json"
     cmd = [sys.executable, "-m", "exstruct.cli.main", str(xlsx), "-o", str(out_json)]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -54,7 +71,7 @@ def test_CLIでjson出力が成功する(tmp_path: Path) -> None:
 
 
 def test_CLIでyamlやtoon指定は未サポート(tmp_path: Path) -> None:
-    xlsx = _copy_sample_excel(tmp_path)
+    xlsx = _prepare_sample_excel(tmp_path)
     out_yaml = tmp_path / "out.yaml"
     cmd = [sys.executable, "-m", "exstruct.cli.main", str(xlsx), "-o", str(out_yaml), "-f", "yaml"]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -76,7 +93,7 @@ def test_CLIでyamlやtoon指定は未サポート(tmp_path: Path) -> None:
     reason="Excel COM or pypdfium2 unavailable; skipping PDF/PNG export tests.",
 )
 def test_CLIでpdfと画像が出力される(tmp_path: Path) -> None:
-    xlsx = _copy_sample_excel(tmp_path)
+    xlsx = _prepare_sample_excel(tmp_path)
     out_json = tmp_path / "out.json"
     cmd = [
         sys.executable,

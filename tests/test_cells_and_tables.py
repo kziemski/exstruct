@@ -59,7 +59,7 @@ def test_excelなし環境ではセルとテーブルのみ返す(monkeypatch, t
     def _raise(*_args, **_kwargs):
         raise RuntimeError("no COM")
 
-    monkeypatch.setattr("exstruct.core.integrate.xw.Book", _raise, raising=False)
+    monkeypatch.setattr("exstruct.core.integrate._open_workbook", _raise, raising=False)
 
     wb_data = extract_workbook(path)
     assert wb_data.book_name == path.name
