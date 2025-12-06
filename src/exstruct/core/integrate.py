@@ -12,6 +12,7 @@ from .cells import (
     detect_tables,
     detect_tables_openpyxl,
     extract_sheet_cells,
+    extract_sheet_cells_with_links,
 )
 from .charts import get_charts
 from .shapes import get_shapes_with_position
@@ -74,13 +75,16 @@ def integrate_sheet_content(
 
 
 def extract_workbook(
-    file_path: Path, mode: Literal["light", "standard", "verbose"] = "standard"
+    file_path: Path,
+    mode: Literal["light", "standard", "verbose"] = "standard",
+    *,
+    include_cell_links: bool = False,
 ) -> WorkbookData:
     """Extract workbook and return WorkbookData; fallback to cells+tables if Excel COM is unavailable."""
     if mode not in _ALLOWED_MODES:
         raise ValueError(f"Unsupported mode: {mode}")
 
-    cell_data = extract_sheet_cells(file_path)
+    cell_data = extract_sheet_cells_with_links(file_path) if include_cell_links else extract_sheet_cells(file_path)
 
     def _cells_and_tables_only(reason: str) -> WorkbookData:
         sheets: Dict[str, SheetData] = {}

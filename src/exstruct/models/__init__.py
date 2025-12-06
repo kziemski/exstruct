@@ -23,6 +23,7 @@ class Shape(BaseModel):
 class CellRow(BaseModel):
     r: int
     c: Dict[str, int | float | str]
+    links: Optional[Dict[str, str]] = None
 
 
 class ChartSeries(BaseModel):

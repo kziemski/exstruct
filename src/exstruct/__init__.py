@@ -36,7 +36,8 @@ ExtractionMode = Literal["light", "standard", "verbose"]
 
 def extract(file_path: str | Path, mode: ExtractionMode = "standard") -> WorkbookData:
     """Extract workbook semantic structure and return WorkbookData."""
-    engine = ExStructEngine(options=StructOptions(mode=mode))
+    include_links = True if mode == "verbose" else False
+    engine = ExStructEngine(options=StructOptions(mode=mode, include_cell_links=include_links))
     return engine.extract(file_path, mode=mode)
 
 

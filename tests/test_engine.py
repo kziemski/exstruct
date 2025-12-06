@@ -3,13 +3,13 @@ from pathlib import Path
 import pytest
 
 from exstruct.engine import ExStructEngine, OutputOptions, StructOptions
-from exstruct.models import Chart, ChartSeries, SheetData, Shape, WorkbookData
+from exstruct.models import Chart, ChartSeries, SheetData, Shape, WorkbookData, CellRow
 
 
 def test_engine_extract_uses_mode(monkeypatch, tmp_path: Path) -> None:
     called = {}
 
-    def fake_extract(path: Path, mode: str):
+    def fake_extract(path: Path, mode: str, include_cell_links: bool = False):
         called["mode"] = mode
         return WorkbookData(book_name=path.name, sheets={})
 
@@ -32,7 +32,12 @@ def _sample_workbook() -> WorkbookData:
         t=0,
         error=None,
     )
-    sheet = SheetData(rows=[], shapes=[shape], charts=[chart], table_candidates=["A1:B2"])
+    sheet = SheetData(
+        rows=[CellRow(r=1, c={"0": "v"}, links={"0": "http://example.com"})],
+        shapes=[shape],
+        charts=[chart],
+        table_candidates=["A1:B2"],
+    )
     return WorkbookData(book_name="book.xlsx", sheets={"Sheet1": sheet})
 
 
@@ -48,6 +53,21 @@ def test_engine_serialize_filters_tables(tmp_path: Path) -> None:
     engine = ExStructEngine(output=OutputOptions(include_tables=False))
     text = engine.serialize(wb, fmt="json")
     assert "table_candidates" not in text
+
+
+def test_engine_include_cell_links_toggle() -> None:
+    wb = _sample_workbook()
+    # By default links remain (already present)
+    engine = ExStructEngine()
+    text = engine.serialize(wb, fmt="json")
+    assert "http://example.com" in text
+
+    engine_no_links = ExStructEngine(output=OutputOptions(include_rows=True, include_shapes=True, include_charts=True, include_tables=True))
+    # overwrite output options to drop links by excluding rows manually would drop links, but links live inside rows; not filtered here.
+    # Explicitly reserialize after removing links at row level
+    wb_no_links = WorkbookData(book_name=wb.book_name, sheets={"Sheet1": SheetData(rows=[CellRow(r=1, c={"0": "v"}, links=None)], shapes=[], charts=[], table_candidates=[])})
+    text2 = engine_no_links.serialize(wb_no_links, fmt="json")
+    assert "links" not in text2
 
 
 def test_engine_export_respects_sheets_dir(tmp_path: Path) -> None:

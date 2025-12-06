@@ -3,6 +3,7 @@ from pathlib import Path
 from openpyxl import Workbook
 
 from exstruct.core import integrate
+from exstruct.models import CellRow
 
 
 def test_extract_workbook_fallback_on_com_failure(monkeypatch, tmp_path: Path) -> None:
@@ -28,3 +29,26 @@ def test_extract_workbook_fallback_on_com_failure(monkeypatch, tmp_path: Path) -
     assert result.sheets["Sheet1"].charts == []
     # table_candidates populated via openpyxl detection fallback
     assert result.sheets["Sheet1"].table_candidates
+
+
+def test_extract_workbook_with_links(monkeypatch, tmp_path: Path) -> None:
+    # create workbook with hyperlink
+    path = tmp_path / "links.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Sheet1"
+    cell = ws["A1"]
+    cell.value = "click"
+    cell.hyperlink = "http://example.com"
+    wb.save(path)
+    wb.close()
+
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("no COM")
+
+    monkeypatch.setattr("exstruct.core.integrate._open_workbook", _raise, raising=False)
+
+    result = integrate.extract_workbook(path, mode="standard", include_cell_links=True)
+    row = result.sheets["Sheet1"].rows[0]
+    assert isinstance(row, CellRow)
+    assert row.links == {"0": "http://example.com"}

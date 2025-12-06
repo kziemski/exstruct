@@ -32,6 +32,7 @@ class StructOptions:
 
     mode: ExtractionMode = "standard"
     table_params: Optional[dict] = None  # forwarded to set_table_detection_params if provided
+    include_cell_links: Optional[bool] = None  # None → auto: verbose=True, others=False
 
 
 @dataclass(frozen=True)
@@ -133,8 +134,13 @@ class ExStructEngine:
         chosen_mode = mode or self.options.mode
         if chosen_mode not in ("light", "standard", "verbose"):
             raise ValueError(f"Unsupported mode: {chosen_mode}")
+        include_links = (
+            self.options.include_cell_links
+            if self.options.include_cell_links is not None
+            else chosen_mode == "verbose"
+        )
         with self._table_params_scope():
-            return extract_workbook(Path(file_path), mode=chosen_mode)
+            return extract_workbook(Path(file_path), mode=chosen_mode, include_cell_links=include_links)
 
     def serialize(
         self,

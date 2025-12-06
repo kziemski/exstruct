@@ -52,6 +52,7 @@ CellRow {
   r: int                // 行番号 (0-based index)
   c: { [colIndex: str]: str | int | float }
                        // 非空セルのみを保持する dict
+  links: { [colIndex: str]: url } | null // セルのハイパーリンク（mode=verbose で標準出力、その他は opt-in）
 }
 ```
 
@@ -187,6 +188,7 @@ WorkbookData {
 # 10. Changelog
 
 - 0.3: モデルに出力ヘルパー (`to_json`/`to_yaml`/`to_toon`/`save`) を追加し、フォーマット判定・依存チェック・pretty 仕様を明文化。`WorkbookData` の `__iter__` / `__getitem__` を定義。
+- 0.4: CellRow に `links` を追加（列インデックス→URL）。mode=verbose でデフォルト出力、その他は opt-in。
 
 ---
 

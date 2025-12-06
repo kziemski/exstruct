@@ -54,6 +54,45 @@ def extract_sheet_cells(file_path: Path) -> Dict[str, List[CellRow]]:
     return result
 
 
+def extract_sheet_cells_with_links(file_path: Path) -> Dict[str, List[CellRow]]:
+    """
+    Extract cells and hyperlinks per sheet.
+
+    Returns:
+        {sheet_name: [CellRow(r=..., c=..., links={"col_index": url, ...}), ...]}
+
+    Notes:
+        - Uses pandas extraction for values (same filtering as extract_sheet_cells).
+        - Collects hyperlinks via openpyxl (requires read_only=False because border maps/hyperlinks need full objects).
+        - Links are mapped by column index string (e.g., "0") to hyperlink.target.
+    """
+    cell_rows = extract_sheet_cells(file_path)
+    wb = load_workbook(file_path, data_only=True, read_only=False)
+    links_by_sheet: Dict[str, Dict[int, Dict[str, str]]] = {}
+    for ws in wb.worksheets:
+        sheet_links: Dict[int, Dict[str, str]] = {}
+        for row in ws.iter_rows():
+            for cell in row:
+                link = getattr(cell, "hyperlink", None)
+                target = getattr(link, "target", None) if link else None
+                if not target:
+                    continue
+                col_str = str(cell.col_idx - 1)  # zero-based to align with extract_sheet_cells
+                sheet_links.setdefault(cell.row, {})[col_str] = target
+        links_by_sheet[ws.title] = sheet_links
+
+    merged: Dict[str, List[CellRow]] = {}
+    for sheet_name, rows in cell_rows.items():
+        sheet_links = links_by_sheet.get(sheet_name, {})
+        merged_rows: List[CellRow] = []
+        for row in rows:
+            links = sheet_links.get(row.r, {})
+            merged_rows.append(CellRow(r=row.r, c=row.c, links=links or None))
+        merged[sheet_name] = merged_rows
+    wb.close()
+    return merged
+
+
 def shrink_to_content(
     sheet: xw.Sheet,
     top: int,
