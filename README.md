@@ -57,6 +57,16 @@ for name, sheet in wb:               # __iter__ yields (name, SheetData)
 wb.save("out.json", pretty=True)     # WorkbookData → file (by extension)
 first_sheet.save("sheet.json")       # SheetData → file (by extension)
 print(first_sheet.to_yaml())         # YAML text (requires pyyaml)
+
+# ExStructEngine: per-instance options for extraction/output
+from exstruct import ExStructEngine, StructOptions, OutputOptions
+
+engine = ExStructEngine(
+    options=StructOptions(mode="standard"),
+    output=OutputOptions(include_shapes=False, pretty=True),
+)
+wb2 = engine.extract("input.xlsx")
+engine.export(wb2, Path("out_filtered.json"))  # drops shapes via OutputOptions
 ```
 
 ## Table Detection Tuning

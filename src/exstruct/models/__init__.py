@@ -163,6 +163,14 @@ class WorkbookData(BaseModel):
             case _:
                 raise ValueError(f"Unsupported export format: {fmt}")
         return dest
+
+    def __getitem__(self, sheet_name: str) -> SheetData:
+        """Return the SheetData for the given sheet name."""
+        return self.sheets[sheet_name]
+
+    def __iter__(self):
+        """Iterate over (sheet_name, SheetData) pairs in order."""
+        return iter(self.sheets.items())
     
     def __iter__(self):
         return iter(self.sheets.items())

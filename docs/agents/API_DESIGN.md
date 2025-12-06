@@ -45,6 +45,15 @@ data.save("file.json")
 data["Sheet1"]          # WorkbookData.__getitem__
 for name, sheet in data:  # WorkbookData.__iter__
     print(name, len(sheet.rows))
+
+# ExStructEngine (per-instance options)
+from exstruct import ExStructEngine, StructOptions, OutputOptions
+engine = ExStructEngine(
+    options=StructOptions(mode="standard"),
+    output=OutputOptions(include_shapes=False, pretty=True),
+)
+wb = engine.extract("file.xlsx")
+engine.export(wb, "filtered.json")
 ```
 
 ---

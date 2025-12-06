@@ -57,6 +57,16 @@ for name, sheet in wb:               # __iter__ で (name, SheetData) を列挙
 wb.save("out.json", pretty=True)     # WorkbookData を拡張子に応じて保存
 first_sheet.save("sheet.json")       # SheetData も同様に保存
 print(first_sheet.to_yaml())         # YAML 文字列（pyyaml 必須）
+
+# ExStructEngine: インスタンス単位で抽出/出力オプションを設定
+from exstruct import ExStructEngine, StructOptions, OutputOptions
+
+engine = ExStructEngine(
+    options=StructOptions(mode="standard"),
+    output=OutputOptions(include_shapes=False, pretty=True),
+)
+wb2 = engine.extract("input.xlsx")
+engine.export(wb2, Path("out_filtered.json"))  # OutputOptions により shapes を除外
 ```
 
 ## テーブル検出パラメータ

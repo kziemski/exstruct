@@ -118,6 +118,32 @@ set_table_detection_params(table_score_threshold=0.35, density_min=0.05)
 set_table_detection_params(table_score_threshold=0.25, coverage_min=0.15)
 ```
 
+### ExStructEngine(options=StructOptions(), output=OutputOptions())
+
+Configurable engine for per-instance extraction/output settings.
+
+- `StructOptions`: `mode`, optional `table_params` (forwarded to `set_table_detection_params`).
+- `OutputOptions`: defaults for `fmt`, `pretty`, `indent`, include/exclude flags for rows/shapes/charts/tables, `sheets_dir`, `stream`.
+- Methods:
+  - `extract(path, mode=None)` → WorkbookData
+  - `serialize(workbook, fmt=None, pretty=None, indent=None)` → str (filters applied)
+  - `export(workbook, output_path=None, fmt=None, pretty=None, indent=None, sheets_dir=None, stream=None)`
+  - `process(file_path, output_path=None, out_fmt=None, image=False, pdf=False, dpi=72, mode=None, pretty=None, indent=None, sheets_dir=None, stream=None)`
+
+Example:
+
+```python
+from exstruct import ExStructEngine, StructOptions, OutputOptions
+
+engine = ExStructEngine(
+    options=StructOptions(mode="standard"),
+    output=OutputOptions(include_shapes=False, pretty=True),
+)
+wb = engine.extract("input.xlsx")
+engine.export(wb, "out.json")              # writes filtered JSON (no shapes)
+engine.process("input.xlsx", pdf=False)    # end-to-end extract + export
+```
+
 ## Models
 
 | Model         | Key fields                                                                                 |
