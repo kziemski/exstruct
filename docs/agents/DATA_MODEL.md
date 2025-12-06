@@ -179,6 +179,8 @@ WorkbookData {
 
 - ペイロードは `book_name` + `sheets` を含む。シリアライズは `serialize_workbook` と同一ロジック。
 - Save は `export` と同じ挙動（フォーマット判定・pretty オプションなど）を持つ。
+- __iter__メソッドでsheetsの中身をイテレーション
+- __getitem__メソッドでSheetDataを直接シート名から取り出せる
 
 ---
 
