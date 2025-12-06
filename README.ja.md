@@ -9,9 +9,10 @@ ExStruct は Excel ワークブックを読み取り、構造化データ（テ�
 ## 主な特徴
 
 - **Excel → 構造化 JSON**: セル、図形、チャート、テーブル候補をシート単位で出力。
-- **出力モード**: `light`（セル＋テーブル候補のみ）、`standard`（テキスト付き図形＋矢印、チャート）、`verbose`（全図形を幅高さ付きで出力）。
+- **出力モード**: `light`（セル＋テーブル候補のみ）、`standard`（テキスト付き図形＋矢印、チャート）、`verbose`（全図形を幅高さ付きで出力、セルのハイパーリンクも出力）。
 - **フォーマット**: JSON（デフォルトはコンパクト、`--pretty` で整形）、YAML、TOON（任意依存）。
 - **テーブル検出のチューニング**: API でヒューリスティックを動的に変更可能。
+- **ハイパーリンク抽出**: `verbose` モード（または `include_cell_links=True` 指定）でセルのリンクを `links` に出力。
 - **CLI レンダリング**（Excel 必須）: PDF とシート画像を生成可能。
 - **安全なフォールバック**: Excel COM 不在でもプロセスは落ちず、セル＋テーブル候補に切り替え。
 
@@ -29,6 +30,7 @@ pip install exstruct
 - まとめて導入: `pip install exstruct[yaml,toon,render]`
 
 プラットフォーム注意:
+
 - 図形・チャートを含むフル抽出は Windows + Excel (xlwings/COM) 前提。その他プラットフォームでは `mode=light` でセル＋`table_candidates` のみ安全に取得できます。
 
 ## クイックスタート CLI
@@ -53,7 +55,7 @@ from exstruct import extract, export, set_table_detection_params
 set_table_detection_params(table_score_threshold=0.3, density_min=0.04)
 
 # モード: "light" / "standard" / "verbose"
-wb = extract("input.xlsx", mode="standard")
+wb = extract("input.xlsx", mode="standard")  # standard ではリンクはデフォルト非出力
 export(wb, Path("out.json"), pretty=False)  # コンパクト JSON
 
 # モデルの便利メソッド: 反復・インデックス・直列化
@@ -85,8 +87,8 @@ set_table_detection_params(
 ## 出力モード
 
 - **light**: セル＋テーブル候補のみ（COM 不要）。
-- **standard**: テキスト付き図形＋矢印、チャート（COM ありで取得）、テーブル候補。
-- **verbose**: 全図形（幅・高さ付き）、チャート、テーブル候補。
+- **standard**: テキスト付き図形＋矢印、チャート（COM ありで取得）、テーブル候補。セルのハイパーリンクは `include_cell_links=True` を指定したときのみ出力。
+- **verbose**: 全図形（幅・高さ付き）、チャート、テーブル候補、セルのハイパーリンク。
 
 ## エラーハンドリング / フォールバック
 

@@ -4,12 +4,12 @@
 
 ![ExStruct Image](/docs/assets/icon.webp)
 
-ExStruct reads Excel workbooks and outputs structured data (tables, shapes, charts) as JSON by default, with optional YAML/TOON formats. It targets both COM/Excel environments (rich extraction) and non-COM environments (cells + table candidates), with tunable detection heuristics and multiple output modes to fit LLM/RAG pipelines.
+ExStruct reads Excel workbooks and outputs structured data (tables, shapes, charts, hyperlinks) as JSON by default, with optional YAML/TOON formats. It targets both COM/Excel environments (rich extraction) and non-COM environments (cells + table candidates), with tunable detection heuristics and multiple output modes to fit LLM/RAG pipelines.
 
 ## Features
 
 - **Excel → Structured JSON**: cells, shapes, charts, and table candidates per sheet.
-- **Output modes**: `light` (cells + table candidates only), `standard` (texted shapes + arrows, charts), `verbose` (all shapes with width/height).
+- **Output modes**: `light` (cells + table candidates only), `standard` (texted shapes + arrows, charts), `verbose` (all shapes with width/height). Verbose also emits cell hyperlinks.
 - **Formats**: JSON (compact by default, `--pretty` available), YAML, TOON (optional dependencies).
 - **Table detection tuning**: adjust heuristics at runtime via API.
 - **CLI rendering** (Excel required): optional PDF and per-sheet PNGs.
@@ -68,11 +68,15 @@ print(first_sheet.to_yaml())         # YAML text (requires pyyaml)
 from exstruct import ExStructEngine, StructOptions, OutputOptions
 
 engine = ExStructEngine(
-    options=StructOptions(mode="standard"),
+    options=StructOptions(mode="verbose"),  # verbose includes hyperlinks by default
     output=OutputOptions(include_shapes=False, pretty=True),
 )
 wb2 = engine.extract("input.xlsx")
 engine.export(wb2, Path("out_filtered.json"))  # drops shapes via OutputOptions
+
+# Enable hyperlinks in other modes
+engine_links = ExStructEngine(options=StructOptions(mode="standard", include_cell_links=True))
+with_links = engine_links.extract("input.xlsx")
 ```
 
 **Note (non-COM environments):** If Excel COM is unavailable, extraction still runs and returns cells + `table_candidates`; `shapes`/`charts` will be empty.
@@ -95,8 +99,8 @@ Use higher thresholds to reduce false positives; lower them if true tables are m
 ## Output Modes
 
 - **light**: cells + table candidates (no COM needed).
-- **standard**: texted shapes + arrows, charts (COM if available), table candidates.
-- **verbose**: all shapes (with width/height), charts, table candidates.
+- **standard**: texted shapes + arrows, charts (COM if available), table candidates. Hyperlinks are off unless `include_cell_links=True`.
+- **verbose**: all shapes (with width/height), charts, table candidates, and cell hyperlinks.
 
 ## Error Handling / Fallbacks
 
