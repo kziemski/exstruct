@@ -85,22 +85,34 @@ def _extract_print_areas_openpyxl(file_path: Path) -> Dict[str, List[PrintArea]]
 
     try:
         defined = wb.defined_names.get("_xlnm.Print_Area")
-        if not defined:
-            return {}
-
         areas: Dict[str, List[PrintArea]] = {}
-        for sheet_name, range_str in defined.destinations:
-            if sheet_name not in wb.sheetnames:
-                continue
-            # A single destination can contain multiple comma-separated ranges.
-            for part in str(range_str).split(","):
-                parsed = _parse_print_area_range(part)
-                if not parsed:
+        if defined:
+            for sheet_name, range_str in defined.destinations:
+                if sheet_name not in wb.sheetnames:
                     continue
-                r1, c1, r2, c2 = parsed
-                areas.setdefault(sheet_name, []).append(
-                    PrintArea(r1=r1, c1=c1, r2=r2, c2=c2)
-                )
+                # A single destination can contain multiple comma-separated ranges.
+                for part in str(range_str).split(","):
+                    parsed = _parse_print_area_range(part)
+                    if not parsed:
+                        continue
+                    r1, c1, r2, c2 = parsed
+                    areas.setdefault(sheet_name, []).append(
+                        PrintArea(r1=r1, c1=c1, r2=r2, c2=c2)
+                    )
+        # Fallback: some files carry sheet-level print_area without defined name.
+        if not areas:
+            for ws in wb.worksheets:
+                pa = getattr(ws, "_print_area", None)
+                if not pa:
+                    continue
+                for part in str(pa).split(","):
+                    parsed = _parse_print_area_range(part)
+                    if not parsed:
+                        continue
+                    r1, c1, r2, c2 = parsed
+                    areas.setdefault(ws.title, []).append(
+                        PrintArea(r1=r1, c1=c1, r2=r2, c2=c2)
+                    )
         return areas
     finally:
         try:

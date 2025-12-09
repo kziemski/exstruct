@@ -70,7 +70,7 @@ class OutputOptions:
     include_shapes: bool = True
     include_charts: bool = True
     include_tables: bool = True
-    include_print_areas: bool = True
+    include_print_areas: bool | None = None  # None -> auto (light=False, others=True)
     include_shape_size: bool | None = None
     include_chart_size: bool | None = None
     sheets_dir: Path | None = None
@@ -146,8 +146,18 @@ class ExStructEngine:
         )
         return include_shape_size, include_chart_size
 
+    def _include_print_areas(self) -> bool:
+        """
+        Decide whether to include print areas in output.
+        Auto: light -> False, others -> True.
+        """
+        if self.output.include_print_areas is None:
+            return self.options.mode != "light"
+        return self.output.include_print_areas
+
     def _filter_sheet(self, sheet: SheetData) -> SheetData:
         include_shape_size, include_chart_size = self._resolve_size_flags()
+        include_print_areas = self._include_print_areas()
         return SheetData(
             rows=sheet.rows if self.output.include_rows else [],
             shapes=[
@@ -163,7 +173,7 @@ class ExStructEngine:
             if self.output.include_charts
             else [],
             table_candidates=sheet.table_candidates if self.output.include_tables else [],
-            print_areas=sheet.print_areas if self.output.include_print_areas else [],
+            print_areas=sheet.print_areas if include_print_areas else [],
         )
 
     def _filter_workbook(self, wb: WorkbookData) -> WorkbookData:
@@ -180,7 +190,7 @@ class ExStructEngine:
             if self.options.include_cell_links is not None
             else chosen_mode == "verbose"
         )
-        include_print_areas = chosen_mode != "light"
+        include_print_areas = True  # lightでも印刷範囲は抽出する
         with self._table_params_scope():
             return extract_workbook(
                 Path(file_path),
@@ -254,7 +264,7 @@ class ExStructEngine:
 
         if chosen_print_areas_dir is not None:
             include_shape_size, include_chart_size = self._resolve_size_flags()
-            if self.output.include_print_areas:
+            if self._include_print_areas():
                 filtered = self._filter_workbook(data)
                 save_print_area_views(
                     filtered,

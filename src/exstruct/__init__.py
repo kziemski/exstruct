@@ -153,6 +153,7 @@ def process_excel(
             indent=indent,
             sheets_dir=sheets_dir,
             print_areas_dir=print_areas_dir,
+            include_print_areas=None if mode == "light" else True,
             include_shape_size=True if mode == "verbose" else False,
             include_chart_size=True if mode == "verbose" else False,
             stream=stream,

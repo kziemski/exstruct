@@ -114,3 +114,17 @@ def test_engine_export_print_areas_respects_include_flag(tmp_path: Path) -> None
     assert out.exists()
     # When print areas are excluded, no per-area files should be written.
     assert not areas_dir.exists() or not list(areas_dir.glob("*"))
+
+
+def test_engine_export_print_areas_light_mode_skips_shapes_and_charts(tmp_path: Path) -> None:
+    wb = _sample_workbook()
+    areas_dir = tmp_path / "areas"
+    engine = ExStructEngine(
+        options=StructOptions(mode="light"),
+        output=OutputOptions(print_areas_dir=areas_dir),
+    )
+    out = tmp_path / "out.json"
+    engine.export(wb, output_path=out, fmt="json")
+    assert out.exists()
+    # light mode should not emit per-area files (print areas are absent in light extraction)
+    assert not areas_dir.exists() or not list(areas_dir.glob("*"))
