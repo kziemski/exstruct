@@ -1,17 +1,14 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, TextIO
-from contextlib import contextmanager
+from typing import Literal, TextIO
 
-from .core.integrate import extract_workbook
 from .core import cells as _cells
 from .core.cells import set_table_detection_params
+from .core.integrate import extract_workbook
 from .io import (
-    save_as_json,
-    save_as_toon,
-    save_as_yaml,
     save_print_area_views,
     save_sheets,
     serialize_workbook,
@@ -38,8 +35,10 @@ class StructOptions:
     """
 
     mode: ExtractionMode = "standard"
-    table_params: Optional[dict] = None  # forwarded to set_table_detection_params if provided
-    include_cell_links: Optional[bool] = None  # None -> auto: verbose=True, others=False
+    table_params: dict | None = (
+        None  # forwarded to set_table_detection_params if provided
+    )
+    include_cell_links: bool | None = None  # None -> auto: verbose=True, others=False
 
 
 @dataclass(frozen=True)
@@ -108,7 +107,7 @@ class ExStructEngine:
         self.output = output or OutputOptions()
 
     @staticmethod
-    def from_defaults() -> "ExStructEngine":
+    def from_defaults() -> ExStructEngine:
         """Factory to create an engine with default options."""
         return ExStructEngine()
 
@@ -174,15 +173,21 @@ class ExStructEngine:
             ]
             if self.output.include_charts
             else [],
-            table_candidates=sheet.table_candidates if self.output.include_tables else [],
+            table_candidates=sheet.table_candidates
+            if self.output.include_tables
+            else [],
             print_areas=sheet.print_areas if include_print_areas else [],
         )
 
     def _filter_workbook(self, wb: WorkbookData) -> WorkbookData:
-        filtered = {name: self._filter_sheet(sheet) for name, sheet in wb.sheets.items()}
+        filtered = {
+            name: self._filter_sheet(sheet) for name, sheet in wb.sheets.items()
+        }
         return WorkbookData(book_name=wb.book_name, sheets=filtered)
 
-    def extract(self, file_path: str | Path, *, mode: ExtractionMode | None = None) -> WorkbookData:
+    def extract(
+        self, file_path: str | Path, *, mode: ExtractionMode | None = None
+    ) -> WorkbookData:
         """
         ワークブックを抽出して WorkbookData を返す。
 
@@ -214,8 +219,8 @@ class ExStructEngine:
         self,
         data: WorkbookData,
         *,
-        fmt: Optional[Literal["json", "yaml", "yml", "toon"]] = None,
-        pretty: Optional[bool] = None,
+        fmt: Literal["json", "yaml", "yml", "toon"] | None = None,
+        pretty: bool | None = None,
         indent: int | None = None,
     ) -> str:
         """
@@ -226,18 +231,20 @@ class ExStructEngine:
             pretty/indent: JSON 整形オプション
         """
         filtered = self._filter_workbook(data)
-        use_fmt = (fmt or self.output.fmt)
+        use_fmt = fmt or self.output.fmt
         use_pretty = self.output.pretty if pretty is None else pretty
         use_indent = self.output.indent if indent is None else indent
-        return serialize_workbook(filtered, fmt=use_fmt, pretty=use_pretty, indent=use_indent)
+        return serialize_workbook(
+            filtered, fmt=use_fmt, pretty=use_pretty, indent=use_indent
+        )
 
     def export(
         self,
         data: WorkbookData,
         output_path: Path | None = None,
         *,
-        fmt: Optional[Literal["json", "yaml", "yml", "toon"]] = None,
-        pretty: Optional[bool] = None,
+        fmt: Literal["json", "yaml", "yml", "toon"] | None = None,
+        pretty: bool | None = None,
         indent: int | None = None,
         sheets_dir: Path | None = None,
         print_areas_dir: Path | None = None,
@@ -259,8 +266,10 @@ class ExStructEngine:
         """
         text = self.serialize(data, fmt=fmt, pretty=pretty, indent=indent)
         target_stream = stream or self.output.stream
-        chosen_fmt = (fmt or self.output.fmt)
-        chosen_sheets_dir = sheets_dir if sheets_dir is not None else self.output.sheets_dir
+        chosen_fmt = fmt or self.output.fmt
+        chosen_sheets_dir = (
+            sheets_dir if sheets_dir is not None else self.output.sheets_dir
+        )
         chosen_print_areas_dir = (
             print_areas_dir
             if print_areas_dir is not None
@@ -310,7 +319,7 @@ class ExStructEngine:
         file_path: Path,
         output_path: Path | None = None,
         *,
-        out_fmt: Optional[str] = None,
+        out_fmt: str | None = None,
         image: bool = False,
         pdf: bool = False,
         dpi: int = 72,
@@ -351,7 +360,11 @@ class ExStructEngine:
 
         if pdf or image:
             base_target = output_path or file_path.with_suffix(
-                ".yaml" if chosen_fmt in ("yaml", "yml") else ".toon" if chosen_fmt == "toon" else ".json"
+                ".yaml"
+                if chosen_fmt in ("yaml", "yml")
+                else ".toon"
+                if chosen_fmt == "toon"
+                else ".json"
             )
             pdf_path = base_target.with_suffix(".pdf")
             export_pdf(file_path, pdf_path)

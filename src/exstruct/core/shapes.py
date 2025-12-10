@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Optional
 
 import xlwings as xw
 from xlwings import Book
@@ -23,8 +22,8 @@ def angle_to_compass(angle: float) -> str:
 
 
 def coord_to_cell_by_edges(
-    row_edges: List[float], col_edges: List[float], x: float, y: float
-) -> Optional[str]:
+    row_edges: list[float], col_edges: list[float], x: float, y: float
+) -> str | None:
     """Estimate cell address from coordinates and cumulative edges; return None if out of range."""
 
     def find_index(edges, pos):
@@ -73,10 +72,10 @@ def iter_shapes_recursive(shp):
 def _should_include_shape(
     *,
     text: str,
-    shape_type_num: Optional[int],
-    shape_type_str: Optional[str],
-    autoshape_type_str: Optional[str],
-    shape_name: Optional[str],
+    shape_type_num: int | None,
+    shape_type_str: str | None,
+    autoshape_type_str: str | None,
+    shape_name: str | None,
     output_mode: str = "standard",
 ) -> bool:
     """
@@ -91,11 +90,12 @@ def _should_include_shape(
     is_relationship = False
     if shape_type_num in (3, 9):  # line/connector
         is_relationship = True
-    if autoshape_type_str and ("Arrow" in autoshape_type_str or "Connector" in autoshape_type_str):
+    if autoshape_type_str and (
+        "Arrow" in autoshape_type_str or "Connector" in autoshape_type_str
+    ):
         is_relationship = True
     if shape_type_str and (
-        "Connector" in shape_type_str
-        or shape_type_str in ("Line", "ConnectLine")
+        "Connector" in shape_type_str or shape_type_str in ("Line", "ConnectLine")
     ):
         is_relationship = True
     if shape_name and ("Connector" in shape_name or "Line" in shape_name):
@@ -107,11 +107,13 @@ def _should_include_shape(
     return True
 
 
-def get_shapes_with_position(workbook: Book, mode: str = "standard") -> Dict[str, List[Shape]]:
+def get_shapes_with_position(
+    workbook: Book, mode: str = "standard"
+) -> dict[str, list[Shape]]:
     """Scan shapes in a workbook and return per-sheet Shape lists with position info."""
-    shape_data: Dict[str, List[Shape]] = {}
+    shape_data: dict[str, list[Shape]] = {}
     for sheet in workbook.sheets:
-        shapes: List[Shape] = []
+        shapes: list[Shape] = []
         for root in sheet.shapes:
             for shp in iter_shapes_recursive(root):
                 try:
@@ -152,7 +154,11 @@ def get_shapes_with_position(workbook: Book, mode: str = "standard") -> Dict[str
                 ):
                     continue
 
-                if autoshape_type_str and autoshape_type_str == "NotPrimitive" and shape_name:
+                if (
+                    autoshape_type_str
+                    and autoshape_type_str == "NotPrimitive"
+                    and shape_name
+                ):
                     type_label = shape_name
                 else:
                     type_label = (
@@ -165,25 +171,37 @@ def get_shapes_with_position(workbook: Book, mode: str = "standard") -> Dict[str
                     text=text,
                     l=int(shp.left),
                     t=int(shp.top),
-                    w=int(shp.width) if mode == "verbose" or shape_type_str == "Group" else None,
-                    h=int(shp.height) if mode == "verbose" or shape_type_str == "Group" else None,
+                    w=int(shp.width)
+                    if mode == "verbose" or shape_type_str == "Group"
+                    else None,
+                    h=int(shp.height)
+                    if mode == "verbose" or shape_type_str == "Group"
+                    else None,
                     type=type_label,
                 )
                 try:
                     is_relationship_geom = False
                     if type_num in (3, 9):
                         is_relationship_geom = True
-                    if autoshape_type_str and ("Arrow" in autoshape_type_str or "Connector" in autoshape_type_str):
-                        is_relationship_geom = True
-                    if shape_type_str and (
-                        "Connector" in shape_type_str or shape_type_str in ("Line", "ConnectLine")
+                    if autoshape_type_str and (
+                        "Arrow" in autoshape_type_str
+                        or "Connector" in autoshape_type_str
                     ):
                         is_relationship_geom = True
-                    if shape_name and ("Connector" in shape_name or "Line" in shape_name):
+                    if shape_type_str and (
+                        "Connector" in shape_type_str
+                        or shape_type_str in ("Line", "ConnectLine")
+                    ):
+                        is_relationship_geom = True
+                    if shape_name and (
+                        "Connector" in shape_name or "Line" in shape_name
+                    ):
                         is_relationship_geom = True
 
                     if is_relationship_geom:
-                        angle = compute_line_angle_deg(float(shp.width), float(shp.height))
+                        angle = compute_line_angle_deg(
+                            float(shp.width), float(shp.height)
+                        )
                         shape_obj.direction = angle_to_compass(angle)  # type: ignore
                         try:
                             rot = float(shp.api.Rotation)
@@ -198,7 +216,9 @@ def get_shapes_with_position(workbook: Book, mode: str = "standard") -> Dict[str
                             shape_obj.end_arrow_style = end_style
                         except Exception:
                             pass
-                    elif type_num == 1 and (autoshape_type_str and "Arrow" in autoshape_type_str):
+                    elif type_num == 1 and (
+                        autoshape_type_str and "Arrow" in autoshape_type_str
+                    ):
                         try:
                             rot = float(shp.api.Rotation)
                             if abs(rot) > 1e-6:

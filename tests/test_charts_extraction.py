@@ -1,5 +1,6 @@
+import os
+import sys
 from pathlib import Path
-import sys, os
 
 import pytest
 import xlwings as xw

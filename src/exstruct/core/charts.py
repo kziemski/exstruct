@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Literal
+from typing import Literal
 
 import xlwings as xw
 
@@ -11,7 +11,7 @@ from ..models.maps import XL_CHART_TYPE_MAP
 logger = logging.getLogger(__name__)
 
 
-def _extract_series_args_text(formula: str) -> Optional[str]:
+def _extract_series_args_text(formula: str) -> str | None:
     """Extract the outer argument text from '=SERIES(...)'; return None if unmatched."""
     if not formula:
         return None
@@ -61,14 +61,14 @@ def _extract_series_args_text(formula: str) -> Optional[str]:
     return None
 
 
-def _split_top_level_args(args_text: str) -> List[str]:
+def _split_top_level_args(args_text: str) -> list[str]:
     """Split SERIES arguments at top-level separators (',' or ';')."""
     if args_text is None:
         return []
     use_semicolon = (";" in args_text) and ("," not in args_text.split('"')[0])
     sep_chars = (";",) if use_semicolon else (",",)
-    args: List[str] = []
-    buf: List[str] = []
+    args: list[str] = []
+    buf: list[str] = []
     depth_paren = 0
     depth_brace = 0
     in_str = False
@@ -128,7 +128,7 @@ def _split_top_level_args(args_text: str) -> List[str]:
     return args
 
 
-def _unquote_excel_string(s: Optional[str]) -> Optional[str]:
+def _unquote_excel_string(s: str | None) -> str | None:
     """Decode Excel-style quoted string; return None if not quoted."""
     if s is None:
         return None
@@ -139,7 +139,7 @@ def _unquote_excel_string(s: Optional[str]) -> Optional[str]:
     return None
 
 
-def parse_series_formula(formula: str) -> Optional[Dict[str, Optional[str]]]:
+def parse_series_formula(formula: str) -> dict[str, str | None] | None:
     """Parse =SERIES into a dict of references; return None on failure."""
     args_text = _extract_series_args_text(formula)
     if args_text is None:
@@ -166,15 +166,17 @@ def parse_series_formula(formula: str) -> Optional[Dict[str, Optional[str]]]:
     }
 
 
-def get_charts(sheet: xw.Sheet, mode: Literal["light", "standard", "verbose"] = "standard") -> List[Chart]:
+def get_charts(
+    sheet: xw.Sheet, mode: Literal["light", "standard", "verbose"] = "standard"
+) -> list[Chart]:
     """Parse charts in a sheet into Chart models; failed charts carry an error field."""
-    charts: List[Chart] = []
+    charts: list[Chart] = []
     for ch in sheet.charts:
-        series_list: List[ChartSeries] = []
+        series_list: list[ChartSeries] = []
         y_axis_title: str = ""
-        y_axis_range: List[int] = []
+        y_axis_range: list[int] = []
         chart_type_label: str = "unknown"
-        error: Optional[str] = None
+        error: str | None = None
 
         try:
             chart_com = sheet.api.ChartObjects(ch.name).Chart
@@ -182,8 +184,8 @@ def get_charts(sheet: xw.Sheet, mode: Literal["light", "standard", "verbose"] = 
             chart_type_label = XL_CHART_TYPE_MAP.get(
                 chart_type_num, f"unknown_{chart_type_num}"
             )
-            chart_width: Optional[int] = None
-            chart_height: Optional[int] = None
+            chart_width: int | None = None
+            chart_height: int | None = None
             try:
                 chart_width = int(ch.width)
                 chart_height = int(ch.height)

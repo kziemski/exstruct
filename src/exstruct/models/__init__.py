@@ -11,40 +11,40 @@ class Shape(BaseModel):
     text: str
     l: int
     t: int
-    w: Optional[int]
-    h: Optional[int]
-    type: Optional[str] = None
-    rotation: Optional[float] = None
-    begin_arrow_style: Optional[int] = None
-    end_arrow_style: Optional[int] = None
-    direction: Optional[Literal["E", "SE", "S", "SW", "W", "NW", "N", "NE"]] = None
+    w: int | None
+    h: int | None
+    type: str | None = None
+    rotation: float | None = None
+    begin_arrow_style: int | None = None
+    end_arrow_style: int | None = None
+    direction: Literal["E", "SE", "S", "SW", "W", "NW", "N", "NE"] | None = None
 
 
 class CellRow(BaseModel):
     r: int
-    c: Dict[str, int | float | str]
-    links: Optional[Dict[str, str]] = None
+    c: dict[str, int | float | str]
+    links: dict[str, str] | None = None
 
 
 class ChartSeries(BaseModel):
     name: str
-    name_range: Optional[str] = None
-    x_range: Optional[str] = None
-    y_range: Optional[str] = None
+    name_range: str | None = None
+    x_range: str | None = None
+    y_range: str | None = None
 
 
 class Chart(BaseModel):
     name: str
     chart_type: str
-    title: Optional[str]
+    title: str | None
     y_axis_title: str
-    y_axis_range: List[float] = Field(default_factory=list)
-    w: Optional[int] = None
-    h: Optional[int] = None
-    series: List[ChartSeries]
+    y_axis_range: list[float] = Field(default_factory=list)
+    w: int | None = None
+    h: int | None = None
+    series: list[ChartSeries]
     l: int
     t: int
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class PrintArea(BaseModel):
@@ -55,13 +55,13 @@ class PrintArea(BaseModel):
 
 
 class SheetData(BaseModel):
-    rows: List[CellRow] = Field(default_factory=list)
-    shapes: List[Shape] = Field(default_factory=list)
-    charts: List[Chart] = Field(default_factory=list)
-    table_candidates: List[str] = Field(default_factory=list)
-    print_areas: List[PrintArea] = Field(default_factory=list)
+    rows: list[CellRow] = Field(default_factory=list)
+    shapes: list[Shape] = Field(default_factory=list)
+    charts: list[Chart] = Field(default_factory=list)
+    table_candidates: list[str] = Field(default_factory=list)
+    print_areas: list[PrintArea] = Field(default_factory=list)
 
-    def _as_payload(self) -> Dict[str, object]:
+    def _as_payload(self) -> dict[str, object]:
         from ..io import dict_without_empty_values
 
         return dict_without_empty_values(self.model_dump(exclude_none=True))  # type: ignore
@@ -124,7 +124,7 @@ class SheetData(BaseModel):
 
 class WorkbookData(BaseModel):
     book_name: str
-    sheets: Dict[str, SheetData]
+    sheets: dict[str, SheetData]
 
     def to_json(self, *, pretty: bool = False, indent: int | None = None) -> str:
         """
@@ -188,12 +188,12 @@ class PrintAreaView(BaseModel):
     book_name: str
     sheet_name: str
     area: PrintArea
-    shapes: List[Shape] = Field(default_factory=list)
-    charts: List[Chart] = Field(default_factory=list)
-    rows: List[CellRow] = Field(default_factory=list)
-    table_candidates: List[str] = Field(default_factory=list)
+    shapes: list[Shape] = Field(default_factory=list)
+    charts: list[Chart] = Field(default_factory=list)
+    rows: list[CellRow] = Field(default_factory=list)
+    table_candidates: list[str] = Field(default_factory=list)
 
-    def _as_payload(self) -> Dict[str, object]:
+    def _as_payload(self) -> dict[str, object]:
         from ..io import dict_without_empty_values
 
         return dict_without_empty_values(self.model_dump(exclude_none=True))  # type: ignore

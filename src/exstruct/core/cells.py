@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import deque
 from decimal import Decimal, InvalidOperation
-import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -33,15 +32,15 @@ def warn_once(key: str, message: str) -> None:
         _warned_keys.add(key)
 
 
-def extract_sheet_cells(file_path: Path) -> Dict[str, List[CellRow]]:
+def extract_sheet_cells(file_path: Path) -> dict[str, list[CellRow]]:
     """Read all sheets via pandas and convert to CellRow list while skipping empty cells."""
     dfs = pd.read_excel(file_path, header=None, sheet_name=None, dtype=str)
-    result: Dict[str, List[CellRow]] = {}
+    result: dict[str, list[CellRow]] = {}
     for sheet_name, df in dfs.items():
         df = df.fillna("")
-        rows: List[CellRow] = []
+        rows: list[CellRow] = []
         for excel_row, row in enumerate(df.itertuples(index=False, name=None), start=1):
-            filtered: Dict[str, int | float | str] = {}
+            filtered: dict[str, int | float | str] = {}
             for j, v in enumerate(row):
                 s = "" if v is None else str(v)
                 if s.strip() == "":
@@ -54,7 +53,7 @@ def extract_sheet_cells(file_path: Path) -> Dict[str, List[CellRow]]:
     return result
 
 
-def extract_sheet_cells_with_links(file_path: Path) -> Dict[str, List[CellRow]]:
+def extract_sheet_cells_with_links(file_path: Path) -> dict[str, list[CellRow]]:
     """
     Extract cells and hyperlinks per sheet.
 
@@ -68,23 +67,25 @@ def extract_sheet_cells_with_links(file_path: Path) -> Dict[str, List[CellRow]]:
     """
     cell_rows = extract_sheet_cells(file_path)
     wb = load_workbook(file_path, data_only=True, read_only=False)
-    links_by_sheet: Dict[str, Dict[int, Dict[str, str]]] = {}
+    links_by_sheet: dict[str, dict[int, dict[str, str]]] = {}
     for ws in wb.worksheets:
-        sheet_links: Dict[int, Dict[str, str]] = {}
+        sheet_links: dict[int, dict[str, str]] = {}
         for row in ws.iter_rows():
             for cell in row:
                 link = getattr(cell, "hyperlink", None)
                 target = getattr(link, "target", None) if link else None
                 if not target:
                     continue
-                col_str = str(cell.col_idx - 1)  # zero-based to align with extract_sheet_cells
+                col_str = str(
+                    cell.col_idx - 1
+                )  # zero-based to align with extract_sheet_cells
                 sheet_links.setdefault(cell.row, {})[col_str] = target
         links_by_sheet[ws.title] = sheet_links
 
-    merged: Dict[str, List[CellRow]] = {}
+    merged: dict[str, list[CellRow]] = {}
     for sheet_name, rows in cell_rows.items():
         sheet_links = links_by_sheet.get(sheet_name, {})
-        merged_rows: List[CellRow] = []
+        merged_rows: list[CellRow] = []
         for row in rows:
             links = sheet_links.get(row.r, {})
             merged_rows.append(CellRow(r=row.r, c=row.c, links=links or None))
@@ -101,7 +102,7 @@ def shrink_to_content(
     right: int,
     require_inside_border: bool = False,
     min_nonempty_ratio: float = 0.0,
-) -> Tuple[int, int, int, int]:
+) -> tuple[int, int, int, int]:
     """Trim a rectangle based on cell contents and optional border heuristics."""
     rng = sheet.range((top, left), (bottom, right))
     vals = rng.value
@@ -285,7 +286,7 @@ def detect_border_clusters(has_border: np.ndarray, min_size: int = 4):
 
         structure = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.uint8)
         lbl, num = label(has_border.astype(np.uint8), structure=structure)  # type: ignore
-        rects: List[Tuple[int, int, int, int]] = []
+        rects: list[tuple[int, int, int, int]] = []
         for k in range(1, num + 1):
             ys, xs = np.where(lbl == k)
             if len(ys) < min_size:
@@ -299,7 +300,7 @@ def detect_border_clusters(has_border: np.ndarray, min_size: int = 4):
         )
         h, w = has_border.shape
         visited = np.zeros_like(has_border, dtype=bool)
-        rects: List[Tuple[int, int, int, int]] = []
+        rects: list[tuple[int, int, int, int]] = []
         for r in range(h):
             for c in range(w):
                 if not has_border[r, c] or visited[r, c]:
@@ -366,8 +367,8 @@ def _table_density_metrics(matrix) -> tuple[float, float]:
 
     ys = [p[0] for p in nonempty_coords]
     xs = [p[1] for p in nonempty_coords]
-    bbox_h = (max(ys) - min(ys) + 1)
-    bbox_w = (max(xs) - min(xs) + 1)
+    bbox_h = max(ys) - min(ys) + 1
+    bbox_w = max(xs) - min(xs) + 1
     coverage = (bbox_h * bbox_w) / total if total > 0 else 0.0
     return density, coverage
 
@@ -407,7 +408,7 @@ def _is_plausible_table(matrix) -> bool:
     return rows_with_two >= 2 and cols_with_two >= 2
 
 
-def _nonempty_clusters(matrix: List[List]) -> List[Tuple[int, int, int, int]]:
+def _nonempty_clusters(matrix: list[list]) -> list[tuple[int, int, int, int]]:
     """Return bounding boxes of connected components of nonempty cells (4-neighbor)."""
     if not matrix:
         return []
@@ -420,7 +421,7 @@ def _nonempty_clusters(matrix: List[List]) -> List[Tuple[int, int, int, int]]:
             if not (v is None or str(v).strip() == ""):
                 grid[i][j] = True
     visited = [[False] * cols for _ in range(rows)]
-    boxes: List[Tuple[int, int, int, int]] = []
+    boxes: list[tuple[int, int, int, int]] = []
 
     def bfs(sr: int, sc: int):
         q = deque([(sr, sc)])
@@ -431,7 +432,12 @@ def _nonempty_clusters(matrix: List[List]) -> List[Tuple[int, int, int, int]]:
             r, c = q.popleft()
             for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 nr, nc = r + dr, c + dc
-                if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] and not visited[nr][nc]:
+                if (
+                    0 <= nr < rows
+                    and 0 <= nc < cols
+                    and grid[nr][nc]
+                    and not visited[nr][nc]
+                ):
                     visited[nr][nc] = True
                     q.append((nr, nc))
                     ys.append(nr)
@@ -445,7 +451,7 @@ def _nonempty_clusters(matrix: List[List]) -> List[Tuple[int, int, int, int]]:
     return boxes
 
 
-def _normalize_matrix(matrix) -> List[List]:
+def _normalize_matrix(matrix) -> list[list]:
     if matrix is None:
         return []
     if not isinstance(matrix, list):
@@ -455,7 +461,7 @@ def _normalize_matrix(matrix) -> List[List]:
     return matrix
 
 
-def _header_like_row(row: List) -> bool:
+def _header_like_row(row: list) -> bool:
     nonempty = [v for v in row if not (v is None or str(v).strip() == "")]
     if len(nonempty) < 2:
         return False
@@ -470,7 +476,7 @@ def _header_like_row(row: List) -> bool:
     return str_like >= num_like and str_like >= 1
 
 
-def _table_signal_score(matrix: List[List]) -> float:
+def _table_signal_score(matrix: list[list]) -> float:
     density, coverage = _table_density_metrics(matrix)
     header = any(_header_like_row(r) for r in matrix[:2])  # check first 2 rows
 
@@ -535,7 +541,7 @@ def shrink_to_content_openpyxl(
     left_edge,
     right_edge,
     min_nonempty_ratio: float = 0.0,
-) -> Tuple[int, int, int, int]:
+) -> tuple[int, int, int, int]:
     vals = _get_values_block(ws, top, left, bottom, right)
     rows_n = bottom - top + 1
     cols_n = right - left + 1
@@ -683,9 +689,9 @@ def shrink_to_content_openpyxl(
     return top, left, bottom, right
 
 
-def detect_tables_xlwings(sheet: xw.Sheet) -> List[str]:
+def detect_tables_xlwings(sheet: xw.Sheet) -> list[str]:
     """Detect table-like ranges via COM: ListObjects first, then border clusters."""
-    tables: List[str] = []
+    tables: list[str] = []
     try:
         for lo in sheet.api.ListObjects:
             rng = lo.Range
@@ -739,7 +745,7 @@ def detect_tables_xlwings(sheet: xw.Sheet) -> List[str]:
                 grid[r][c] = True
     visited = [[False] * (max_col + 1) for _ in range(max_row + 1)]
 
-    def dfs(sr: int, sc: int, acc: List[Tuple[int, int]]):
+    def dfs(sr: int, sc: int, acc: list[tuple[int, int]]):
         stack = [(sr, sc)]
         while stack:
             rr, cc = stack.pop()
@@ -752,11 +758,11 @@ def detect_tables_xlwings(sheet: xw.Sheet) -> List[str]:
             for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 stack.append((rr + dr, cc + dc))
 
-    clusters: List[Tuple[int, int, int, int]] = []
+    clusters: list[tuple[int, int, int, int]] = []
     for r in range(1, max_row + 1):
         for c in range(1, max_col + 1):
             if grid[r][c] and not visited[r][c]:
-                cluster: List[Tuple[int, int]] = []
+                cluster: list[tuple[int, int]] = []
                 dfs(r, c, cluster)
                 if len(cluster) < 4:
                     continue
@@ -771,14 +777,13 @@ def detect_tables_xlwings(sheet: xw.Sheet) -> List[str]:
     def overlaps_for_merge(a, b):
         # Do not merge if one rect fully contains the other (separate clusters like big frame vs small table)
         contains = (
-            (a[0] <= b[0] and a[1] <= b[1] and a[2] >= b[2] and a[3] >= b[3])
-            or (b[0] <= a[0] and b[1] <= a[1] and b[2] >= a[2] and b[3] >= a[3])
-        )
+            a[0] <= b[0] and a[1] <= b[1] and a[2] >= b[2] and a[3] >= b[3]
+        ) or (b[0] <= a[0] and b[1] <= a[1] and b[2] >= a[2] and b[3] >= a[3])
         if contains:
             return False
         return not (a[1] > b[3] or a[3] < b[1] or a[0] > b[2] or a[2] < b[0])
 
-    merged_rects: List[Tuple[int, int, int, int]] = []
+    merged_rects: list[tuple[int, int, int, int]] = []
     for rect in sorted(clusters):
         merged = False
         for i, ex in enumerate(merged_rects):
@@ -816,7 +821,10 @@ def detect_tables_xlwings(sheet: xw.Sheet) -> List[str]:
         for r0, c0, r1, c1 in clusters:
             sub = [row[c0 : c1 + 1] for row in rng_vals[r0 : r1 + 1]]
             density, coverage = _table_density_metrics(sub)
-            if density < _DETECTION_CONFIG["density_min"] and coverage < _DETECTION_CONFIG["coverage_min"]:
+            if (
+                density < _DETECTION_CONFIG["density_min"]
+                and coverage < _DETECTION_CONFIG["coverage_min"]
+            ):
                 continue
             if not _is_plausible_table(sub):
                 continue
@@ -830,14 +838,14 @@ def detect_tables_xlwings(sheet: xw.Sheet) -> List[str]:
     return tables
 
 
-def detect_tables_openpyxl(xlsx_path: Path, sheet_name: str) -> List[str]:
+def detect_tables_openpyxl(xlsx_path: Path, sheet_name: str) -> list[str]:
     wb = load_workbook(
         xlsx_path,
         data_only=True,
         read_only=False,
     )
     ws = wb[sheet_name]
-    tables: List[str] = []
+    tables: list[str] = []
     try:
         openpyxl_tables = []
         if hasattr(ws, "tables") and ws.tables:
@@ -860,14 +868,13 @@ def detect_tables_openpyxl(xlsx_path: Path, sheet_name: str) -> List[str]:
 
     def overlaps_for_merge(a, b):
         contains = (
-            (a[0] <= b[0] and a[1] <= b[1] and a[2] >= b[2] and a[3] >= b[3])
-            or (b[0] <= a[0] and b[1] <= a[1] and b[2] >= a[2] and b[3] >= a[3])
-        )
+            a[0] <= b[0] and a[1] <= b[1] and a[2] >= b[2] and a[3] >= b[3]
+        ) or (b[0] <= a[0] and b[1] <= a[1] and b[2] >= a[2] and b[3] >= a[3])
         if contains:
             return False
         return not (a[1] > b[3] or a[3] < b[1] or a[0] > b[2] or a[2] < b[0])
 
-    merged_rects: List[Tuple[int, int, int, int]] = []
+    merged_rects: list[tuple[int, int, int, int]] = []
     for rect in sorted(rects):
         merged = False
         for i, ex in enumerate(merged_rects):
@@ -901,7 +908,10 @@ def detect_tables_openpyxl(xlsx_path: Path, sheet_name: str) -> List[str]:
         vals_block = _get_values_block(ws, top_row, left_col, bottom_row, right_col)
         vals_block = _normalize_matrix(vals_block)
         nonempty = sum(
-            1 for row in vals_block for v in row if not (v is None or str(v).strip() == "")
+            1
+            for row in vals_block
+            for v in row
+            if not (v is None or str(v).strip() == "")
         )
         if nonempty < _DETECTION_CONFIG["min_nonempty_cells"]:
             continue
@@ -909,7 +919,10 @@ def detect_tables_openpyxl(xlsx_path: Path, sheet_name: str) -> List[str]:
         for r0, c0, r1, c1 in clusters:
             sub = [row[c0 : c1 + 1] for row in vals_block[r0 : r1 + 1]]
             density, coverage = _table_density_metrics(sub)
-            if density < _DETECTION_CONFIG["density_min"] and coverage < _DETECTION_CONFIG["coverage_min"]:
+            if (
+                density < _DETECTION_CONFIG["density_min"]
+                and coverage < _DETECTION_CONFIG["coverage_min"]
+            ):
                 continue
             if not _is_plausible_table(sub):
                 continue
@@ -924,8 +937,8 @@ def detect_tables_openpyxl(xlsx_path: Path, sheet_name: str) -> List[str]:
     return tables
 
 
-def detect_tables(sheet: xw.Sheet) -> List[str]:
-    excel_path: Optional[Path] = None
+def detect_tables(sheet: xw.Sheet) -> list[str]:
+    excel_path: Path | None = None
     try:
         excel_path = Path(sheet.book.fullname)
     except Exception:

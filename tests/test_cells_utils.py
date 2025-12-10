@@ -1,7 +1,6 @@
 from pathlib import Path
 
-import pytest
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from exstruct.core import cells
@@ -33,7 +32,9 @@ def test_detect_tables_openpyxl_detects_tables(tmp_path: Path) -> None:
     assert "A1:B2" in tables
 
 
-def test_detect_tables_openpyxl_respects_table_params(tmp_path: Path, monkeypatch) -> None:
+def test_detect_tables_openpyxl_respects_table_params(
+    tmp_path: Path, monkeypatch
+) -> None:
     # Ensure detection still runs after modifying global thresholds
     path = tmp_path / "sample.xlsx"
     wb = Workbook()
@@ -47,11 +48,15 @@ def test_detect_tables_openpyxl_respects_table_params(tmp_path: Path, monkeypatc
     wb.close()
 
     # Force density/coverage to high thresholds to ensure Table objects are still returned
-    monkeypatch.setattr(cells, "_DETECTION_CONFIG", {
-        "table_score_threshold": 0.99,
-        "density_min": 0.99,
-        "coverage_min": 0.99,
-        "min_nonempty_cells": 1,
-    })
+    monkeypatch.setattr(
+        cells,
+        "_DETECTION_CONFIG",
+        {
+            "table_score_threshold": 0.99,
+            "density_min": 0.99,
+            "coverage_min": 0.99,
+            "min_nonempty_cells": 1,
+        },
+    )
     tables = detect_tables_openpyxl(path, "Sheet1")
     assert "A1:B2" in tables

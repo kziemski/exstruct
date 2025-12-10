@@ -28,6 +28,7 @@ dev = [
     "pytest>=9.0.1",
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
+    "ruff>=0.14.8",
 ]
 
 [project.optional-dependencies]
@@ -50,3 +51,42 @@ omit = [
     "*/test_*.py",
     "*/gen_py/*",
 ]
+
+[tool.ruff]
+# 対象ディレクトリ
+src = ["exstruct"]
+
+# 対象 Python バージョン
+target-version = "py311"
+
+# チェックするルール
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # import sorting (isort 相当)
+    "C90", # mccabe: 複雑度
+    "UP",  # pyupgrade: Python の最新構文へ
+    "N",   # pep8-naming
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+]
+
+# 除外したいルール（必要に応じて）
+ignore = [
+    "E501",  # 1行が長い許容（ExStruct は JSON 出力・COM 対応で長くなりやすい）
+    "B008",  # 関数のデフォルト引数に関数を使う禁止 → Pydantic でよく使うので無効
+]
+
+# 自動修正を許可
+fix = true
+
+# import 並び替えの設定（isort の代替）
+[tool.ruff.isort]
+combine-as-imports = true
+known-first-party = ["exstruct"]
+
+# docstring チェック
+[tool.ruff.pydocstyle]
+convention = "google"
+

@@ -27,7 +27,9 @@ def dict_without_empty_values(obj: Any):
     return obj
 
 
-def save_as_json(model: WorkbookData, path: Path, *, pretty: bool = False, indent: int | None = None) -> None:
+def save_as_json(
+    model: WorkbookData, path: Path, *, pretty: bool = False, indent: int | None = None
+) -> None:
     text = serialize_workbook(model, fmt="json", pretty=pretty, indent=indent)
     path.write_text(text, encoding="utf-8")
 
@@ -69,12 +71,14 @@ def _row_in_area(row: CellRow, area: PrintArea) -> bool:
     return area.r1 <= row.r <= area.r2
 
 
-def _filter_row_to_area(row: CellRow, area: PrintArea, *, normalize: bool = False) -> CellRow | None:
+def _filter_row_to_area(
+    row: CellRow, area: PrintArea, *, normalize: bool = False
+) -> CellRow | None:
     if not _row_in_area(row, area):
         return None
 
-    filtered_cells: Dict[str, int | float | str] = {}
-    filtered_links: Dict[str, str] = {}
+    filtered_cells: dict[str, int | float | str] = {}
+    filtered_links: dict[str, str] = {}
 
     for col_idx_str, value in row.c.items():
         try:
@@ -102,7 +106,9 @@ def _filter_row_to_area(row: CellRow, area: PrintArea, *, normalize: bool = Fals
     return CellRow(r=new_row_idx, c=filtered_cells, links=filtered_links or None)
 
 
-def _filter_table_candidates_to_area(table_candidates: list[str], area: PrintArea) -> list[str]:
+def _filter_table_candidates_to_area(
+    table_candidates: list[str], area: PrintArea
+) -> list[str]:
     filtered: list[str] = []
     for candidate in table_candidates:
         bounds = _parse_range_zero_based(candidate)
@@ -114,7 +120,9 @@ def _filter_table_candidates_to_area(table_candidates: list[str], area: PrintAre
     return filtered
 
 
-def _area_to_px_rect(area: PrintArea, *, col_px: int = 64, row_px: int = 20) -> tuple[int, int, int, int]:
+def _area_to_px_rect(
+    area: PrintArea, *, col_px: int = 64, row_px: int = 20
+) -> tuple[int, int, int, int]:
     """
     Convert a cell-based print area to an approximate pixel rectangle (l, t, r, b).
     Uses default Excel-like cell sizes; accuracy is highest when shapes/charts are COM-extracted.
@@ -137,7 +145,10 @@ def _filter_shapes_to_area(shapes: list[Shape], area: PrintArea) -> list[Shape]:
     for shp in shapes:
         if shp.w is None or shp.h is None:
             # Fallback: treat shape as a point if size is unknown (standard mode).
-            if area_rect[0] <= shp.l <= area_rect[2] and area_rect[1] <= shp.t <= area_rect[3]:
+            if (
+                area_rect[0] <= shp.l <= area_rect[2]
+                and area_rect[1] <= shp.t <= area_rect[3]
+            ):
                 filtered.append(shp)
             continue
         shp_rect = (shp.l, shp.t, shp.l + shp.w, shp.t + shp.h)
@@ -166,12 +177,12 @@ def build_print_area_views(
     include_charts: bool = True,
     include_shape_size: bool = True,
     include_chart_size: bool = True,
-) -> Dict[str, list[PrintAreaView]]:
+) -> dict[str, list[PrintAreaView]]:
     """
     Construct PrintAreaView instances for all print areas in the workbook.
     Returns a mapping of sheet name to ordered list of PrintAreaView.
     """
-    views: Dict[str, list[PrintAreaView]] = {}
+    views: dict[str, list[PrintAreaView]] = {}
     for sheet_name, sheet in workbook.sheets.items():
         if not sheet.print_areas:
             continue
@@ -225,7 +236,7 @@ def save_print_area_views(
     include_charts: bool = True,
     include_shape_size: bool = True,
     include_chart_size: bool = True,
-) -> Dict[str, Path]:
+) -> dict[str, Path]:
     """
     Save each print area as an individual file in the specified format.
     Returns a map of area key (e.g., 'Sheet1#1') to written path.
@@ -248,7 +259,7 @@ def save_print_area_views(
         return {}
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    written: Dict[str, Path] = {}
+    written: dict[str, Path] = {}
     suffix = {"json": ".json", "yaml": ".yaml", "toon": ".toon"}[format_hint]
 
     for sheet_name, sheet_views in views.items():
@@ -309,14 +320,20 @@ def serialize_workbook(
             raise ValueError(f"Unsupported export format: {fmt}")
 
 
-def save_sheets_as_json(workbook: WorkbookData, output_dir: Path, *, pretty: bool = False, indent: int | None = None) -> Dict[str, Path]:
+def save_sheets_as_json(
+    workbook: WorkbookData,
+    output_dir: Path,
+    *,
+    pretty: bool = False,
+    indent: int | None = None,
+) -> dict[str, Path]:
     """
     Save each sheet as an individual JSON file.
     Contents include book_name and the sheet's SheetData.
     Returns a map of sheet name -> written path.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
-    written: Dict[str, Path] = {}
+    written: dict[str, Path] = {}
     for sheet_name, sheet_data in workbook.sheets.items():
         payload = dict_without_empty_values(
             {
@@ -328,7 +345,9 @@ def save_sheets_as_json(workbook: WorkbookData, output_dir: Path, *, pretty: boo
         file_name = f"{_sanitize_sheet_filename(sheet_name)}.json"
         path = output_dir / file_name
         indent_val = 2 if pretty and indent is None else indent
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=indent_val), encoding="utf-8")
+        path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=indent_val), encoding="utf-8"
+        )
         written[sheet_name] = path
     return written
 
@@ -340,7 +359,7 @@ def save_sheets(
     *,
     pretty: bool = False,
     indent: int | None = None,
-) -> Dict[str, Path]:
+) -> dict[str, Path]:
     """
     Save each sheet as an individual file in the specified format (json/yaml/toon).
     Payload includes book_name and the sheet's SheetData.
@@ -352,7 +371,7 @@ def save_sheets(
         raise ValueError(f"Unsupported sheet export format: {fmt}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    written: Dict[str, Path] = {}
+    written: dict[str, Path] = {}
     for sheet_name, sheet_data in workbook.sheets.items():
         payload = dict_without_empty_values(
             {

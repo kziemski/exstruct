@@ -1,9 +1,16 @@
+import json
 from pathlib import Path
 
-import pytest
-import json
 from exstruct.engine import ExStructEngine, OutputOptions, StructOptions
-from exstruct.models import Chart, ChartSeries, CellRow, PrintArea, SheetData, Shape, WorkbookData
+from exstruct.models import (
+    CellRow,
+    Chart,
+    ChartSeries,
+    PrintArea,
+    Shape,
+    SheetData,
+    WorkbookData,
+)
 
 
 def test_engine_extract_uses_mode(monkeypatch, tmp_path: Path) -> None:
@@ -71,10 +78,27 @@ def test_engine_include_cell_links_toggle() -> None:
     # Navigate workbook -> sheets -> sheet1 -> rows -> row[0] -> links -> cell '0'
     assert data["sheets"]["Sheet1"]["rows"][0]["links"]["0"] == "http://example.com"
 
-    engine_no_links = ExStructEngine(output=OutputOptions(include_rows=True, include_shapes=True, include_charts=True, include_tables=True))
+    engine_no_links = ExStructEngine(
+        output=OutputOptions(
+            include_rows=True,
+            include_shapes=True,
+            include_charts=True,
+            include_tables=True,
+        )
+    )
     # overwrite output options to drop links by excluding rows manually would drop links, but links live inside rows; not filtered here.
     # Explicitly reserialize after removing links at row level
-    wb_no_links = WorkbookData(book_name=wb.book_name, sheets={"Sheet1": SheetData(rows=[CellRow(r=1, c={"0": "v"}, links=None)], shapes=[], charts=[], table_candidates=[])})
+    wb_no_links = WorkbookData(
+        book_name=wb.book_name,
+        sheets={
+            "Sheet1": SheetData(
+                rows=[CellRow(r=1, c={"0": "v"}, links=None)],
+                shapes=[],
+                charts=[],
+                table_candidates=[],
+            )
+        },
+    )
     text2 = engine_no_links.serialize(wb_no_links, fmt="json")
     assert "links" not in text2
 
@@ -118,7 +142,9 @@ def test_engine_export_print_areas_respects_include_flag(tmp_path: Path) -> None
     assert not areas_dir.exists() or not list(areas_dir.glob("*"))
 
 
-def test_engine_export_print_areas_light_mode_skips_shapes_and_charts(tmp_path: Path) -> None:
+def test_engine_export_print_areas_light_mode_skips_shapes_and_charts(
+    tmp_path: Path,
+) -> None:
     wb = _sample_workbook()
     areas_dir = tmp_path / "areas"
     engine = ExStructEngine(

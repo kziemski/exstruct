@@ -1,6 +1,6 @@
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 import xlwings as xw
@@ -46,7 +46,9 @@ def _make_shapes_book(path: Path) -> None:
             pass
 
 
-def test_lightモードではCOMに触れずセルとテーブルのみ(monkeypatch, tmp_path: Path) -> None:
+def test_lightモードではCOMに触れずセルとテーブルのみ(
+    monkeypatch, tmp_path: Path
+) -> None:
     path = tmp_path / "book.xlsx"
     _make_basic_book(path)
 

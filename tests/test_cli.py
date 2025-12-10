@@ -1,12 +1,11 @@
 import subprocess
 import sys
+from importlib import util
 from pathlib import Path
 
 import pytest
-
 import xlwings as xw
 from openpyxl import Workbook
-from importlib import util
 
 
 def _excel_available() -> bool:
@@ -90,7 +89,16 @@ def test_CLIでjson出力が成功する(tmp_path: Path) -> None:
 def test_CLIでyamlやtoon指定は未サポート(tmp_path: Path) -> None:
     xlsx = _prepare_sample_excel(tmp_path)
     out_yaml = tmp_path / "out.yaml"
-    cmd = [sys.executable, "-m", "exstruct.cli.main", str(xlsx), "-o", str(out_yaml), "-f", "yaml"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "exstruct.cli.main",
+        str(xlsx),
+        "-o",
+        str(out_yaml),
+        "-f",
+        "yaml",
+    ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if util.find_spec("yaml") is not None:
         assert result.returncode == 0
@@ -100,7 +108,16 @@ def test_CLIでyamlやtoon指定は未サポート(tmp_path: Path) -> None:
         assert "pyyaml" in result.stdout or "pyyaml" in result.stderr
 
     out_toon = tmp_path / "out.toon"
-    cmd = [sys.executable, "-m", "exstruct.cli.main", str(xlsx), "-o", str(out_toon), "-f", "toon"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "exstruct.cli.main",
+        str(xlsx),
+        "-o",
+        str(out_toon),
+        "-f",
+        "toon",
+    ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if _toon_available():
         assert result.returncode == 0
@@ -139,7 +156,14 @@ def test_CLIでpdfと画像が出力される(tmp_path: Path) -> None:
 def test_CLIで無効ファイルは安全終了する(tmp_path: Path) -> None:
     bad_path = tmp_path / "nope.xlsx"
     out_json = tmp_path / "out.json"
-    cmd = [sys.executable, "-m", "exstruct.cli.main", str(bad_path), "-o", str(out_json)]
+    cmd = [
+        sys.executable,
+        "-m",
+        "exstruct.cli.main",
+        str(bad_path),
+        "-o",
+        str(out_json),
+    ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     assert result.returncode == 0
     assert "not found" in (result.stdout + result.stderr).lower()
@@ -161,4 +185,6 @@ def test_CLI_print_areas_dir_outputs_files(tmp_path: Path) -> None:
     result = subprocess.run(cmd, capture_output=True, text=True)
     assert result.returncode == 0
     files = list(areas_dir.glob("*.json"))
-    assert files, f"No print area files created. stdout={result.stdout} stderr={result.stderr}"
+    assert files, (
+        f"No print area files created. stdout={result.stdout} stderr={result.stderr}"
+    )

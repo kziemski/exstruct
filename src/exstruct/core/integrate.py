@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Dict, List, Literal
-
 import logging
 import os
+from pathlib import Path
+from typing import Literal
 
 import xlwings as xw
 from openpyxl import load_workbook
@@ -54,7 +53,9 @@ def _open_workbook(file_path: Path) -> tuple[xw.Book, bool]:
     return wb, True
 
 
-def _parse_print_area_range(range_str: str, *, zero_based: bool = True) -> tuple[int, int, int, int] | None:
+def _parse_print_area_range(
+    range_str: str, *, zero_based: bool = True
+) -> tuple[int, int, int, int] | None:
     """
     Parse an Excel range string into (r1, c1, r2, c2). Returns None on failure.
     """
@@ -72,7 +73,7 @@ def _parse_print_area_range(range_str: str, *, zero_based: bool = True) -> tuple
     return (min_row, min_col, max_row, max_col)
 
 
-def _extract_print_areas_openpyxl(file_path: Path) -> Dict[str, List[PrintArea]]:
+def _extract_print_areas_openpyxl(file_path: Path) -> dict[str, list[PrintArea]]:
     """
     Extract print areas per sheet using openpyxl defined names.
 
@@ -85,7 +86,7 @@ def _extract_print_areas_openpyxl(file_path: Path) -> Dict[str, List[PrintArea]]
 
     try:
         defined = wb.defined_names.get("_xlnm.Print_Area")
-        areas: Dict[str, List[PrintArea]] = {}
+        areas: dict[str, list[PrintArea]] = {}
         if defined:
             for sheet_name, range_str in defined.destinations:
                 if sheet_name not in wb.sheetnames:
@@ -121,13 +122,13 @@ def _extract_print_areas_openpyxl(file_path: Path) -> Dict[str, List[PrintArea]]
             pass
 
 
-def _extract_print_areas_com(workbook: xw.Book) -> Dict[str, List[PrintArea]]:
+def _extract_print_areas_com(workbook: xw.Book) -> dict[str, list[PrintArea]]:
     """
     Extract print areas per sheet via xlwings/COM.
 
     Uses Sheet.PageSetup.PrintArea which may contain comma-separated ranges.
     """
-    areas: Dict[str, List[PrintArea]] = {}
+    areas: dict[str, list[PrintArea]] = {}
     for sheet in workbook.sheets:
         try:
             raw = sheet.api.PageSetup.PrintArea or ""
@@ -141,19 +142,21 @@ def _extract_print_areas_com(workbook: xw.Book) -> Dict[str, List[PrintArea]]:
             if not parsed:
                 continue
             r1, c1, r2, c2 = parsed
-            areas.setdefault(sheet.name, []).append(PrintArea(r1=r1, c1=c1, r2=r2, c2=c2))
+            areas.setdefault(sheet.name, []).append(
+                PrintArea(r1=r1, c1=c1, r2=r2, c2=c2)
+            )
     return areas
 
 
 def integrate_sheet_content(
-    cell_data: Dict[str, List[CellRow]],
-    shape_data: Dict[str, List[Shape]],
+    cell_data: dict[str, list[CellRow]],
+    shape_data: dict[str, list[Shape]],
     workbook: xw.Book,
     mode: Literal["light", "standard", "verbose"] = "standard",
-    print_area_data: Dict[str, List[PrintArea]] | None = None,
-) -> Dict[str, SheetData]:
+    print_area_data: dict[str, list[PrintArea]] | None = None,
+) -> dict[str, SheetData]:
     """Integrate cells, shapes, charts, and tables into SheetData per sheet."""
-    result: Dict[str, SheetData] = {}
+    result: dict[str, SheetData] = {}
     for sheet_name, rows in cell_data.items():
         sheet_shapes = shape_data.get(sheet_name, [])
         sheet = workbook.sheets[sheet_name]
@@ -181,13 +184,17 @@ def extract_workbook(
     if mode not in _ALLOWED_MODES:
         raise ValueError(f"Unsupported mode: {mode}")
 
-    cell_data = extract_sheet_cells_with_links(file_path) if include_cell_links else extract_sheet_cells(file_path)
-    print_area_data: Dict[str, List[PrintArea]] = {}
+    cell_data = (
+        extract_sheet_cells_with_links(file_path)
+        if include_cell_links
+        else extract_sheet_cells(file_path)
+    )
+    print_area_data: dict[str, list[PrintArea]] = {}
     if include_print_areas:
         print_area_data = _extract_print_areas_openpyxl(file_path)
 
     def _cells_and_tables_only(reason: str) -> WorkbookData:
-        sheets: Dict[str, SheetData] = {}
+        sheets: dict[str, SheetData] = {}
         for sheet_name, rows in cell_data.items():
             try:
                 tables = detect_tables_openpyxl(file_path, sheet_name)
@@ -198,7 +205,9 @@ def extract_workbook(
                 shapes=[],
                 charts=[],
                 table_candidates=tables,
-                print_areas=print_area_data.get(sheet_name, []) if include_print_areas else [],
+                print_areas=print_area_data.get(sheet_name, [])
+                if include_print_areas
+                else [],
             )
         logger.warning(
             "%s Falling back to cells+tables only; shapes and charts will be empty.",
@@ -210,14 +219,14 @@ def extract_workbook(
         return _cells_and_tables_only("Light mode selected.")
 
     if os.getenv("SKIP_COM_TESTS"):
-        return _cells_and_tables_only("SKIP_COM_TESTS is set; skipping COM/xlwings access.")
+        return _cells_and_tables_only(
+            "SKIP_COM_TESTS is set; skipping COM/xlwings access."
+        )
 
     try:
         wb, close_app = _open_workbook(file_path)
     except Exception as e:
-        return _cells_and_tables_only(
-            f"xlwings/Excel COM is unavailable. ({e!r})"
-        )
+        return _cells_and_tables_only(f"xlwings/Excel COM is unavailable. ({e!r})")
 
     try:
         try:
@@ -237,10 +246,10 @@ def extract_workbook(
             )
             return WorkbookData(book_name=file_path.name, sheets=merged)
         except Exception as e:
-            logger.warning("Shape extraction failed; falling back to cells+tables. (%r)", e)
-            return _cells_and_tables_only(
-                f"Shape extraction failed ({e!r})."
+            logger.warning(
+                "Shape extraction failed; falling back to cells+tables. (%r)", e
             )
+            return _cells_and_tables_only(f"Shape extraction failed ({e!r}).")
     finally:
         # Close only if we created the app to avoid shutting user sessions.
         try:

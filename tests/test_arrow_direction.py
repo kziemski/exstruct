@@ -1,5 +1,3 @@
-import math
-
 import pytest
 
 from exstruct.core.shapes import angle_to_compass, compute_line_angle_deg

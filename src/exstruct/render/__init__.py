@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
 from typing import List
 
@@ -22,7 +22,7 @@ def _require_excel_app() -> xw.App:
         ) from e
 
 
-def export_pdf(excel_path: Path, output_pdf: Path) -> List[str]:
+def export_pdf(excel_path: Path, output_pdf: Path) -> list[str]:
     """Export an Excel workbook to PDF via Excel COM and return sheet names in order."""
     output_pdf.parent.mkdir(parents=True, exist_ok=True)
 
@@ -61,7 +61,7 @@ def _require_pdfium():
 
 def export_sheet_images(
     excel_path: Path, output_dir: Path, dpi: int = 144
-) -> List[Path]:
+) -> list[Path]:
     """Export each sheet as PNG (via PDF then pypdfium2 rasterization) and return paths in sheet order."""
     pdfium = _require_pdfium()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -71,14 +71,14 @@ def export_sheet_images(
         sheet_names = export_pdf(excel_path, tmp_pdf)
 
         scale = dpi / 72.0
-        written: List[Path] = []
+        written: list[Path] = []
         with pdfium.PdfDocument(str(tmp_pdf)) as pdf:  # type: ignore
             for i, sheet_name in enumerate(sheet_names):
                 page = pdf[i]
                 bitmap = page.render(scale=scale)  # type: ignore
                 pil_image = bitmap.to_pil()  # type: ignore
                 safe_name = _sanitize_sheet_filename(sheet_name)
-                img_path = output_dir / f"{i+1:02d}_{safe_name}.png"
+                img_path = output_dir / f"{i + 1:02d}_{safe_name}.png"
                 pil_image.save(img_path, format="PNG", dpi=(dpi, dpi))
                 written.append(img_path)
         return written

@@ -1,9 +1,10 @@
-import pytest
 from pathlib import Path
+
+import pytest
 from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
-from exstruct.core.cells import extract_sheet_cells, detect_tables_openpyxl
+from exstruct.core.cells import detect_tables_openpyxl, extract_sheet_cells
 from exstruct.core.integrate import extract_workbook
 
 

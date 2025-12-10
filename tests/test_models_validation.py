@@ -4,8 +4,8 @@ from exstruct.models import (
     CellRow,
     Chart,
     ChartSeries,
-    SheetData,
     Shape,
+    SheetData,
     WorkbookData,
 )
 

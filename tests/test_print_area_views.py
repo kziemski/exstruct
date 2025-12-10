@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from exstruct.io import save_print_area_views
-from exstruct.models import CellRow, Chart, PrintArea, SheetData, Shape, WorkbookData
+from exstruct.models import CellRow, Chart, PrintArea, Shape, SheetData, WorkbookData
 
 
 def _workbook_with_print_area() -> WorkbookData:

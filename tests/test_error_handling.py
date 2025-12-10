@@ -1,8 +1,7 @@
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
-import pytest
 from openpyxl import Workbook
 
 from exstruct import extract
@@ -20,7 +19,9 @@ def _make_simple_workbook(path: Path) -> None:
     wb.save(path)
 
 
-def test_COMエラーでもフォールバックしてプロセスが落ちない(monkeypatch, tmp_path: Path) -> None:
+def test_COMエラーでもフォールバックしてプロセスが落ちない(
+    monkeypatch, tmp_path: Path
+) -> None:
     path = tmp_path / "book.xlsx"
     _make_simple_workbook(path)
 
@@ -42,7 +43,9 @@ def test_図形抽出失敗でも他要素が取得される(monkeypatch, tmp_pa
     def _raise_shapes(*_a, **_k):
         raise RuntimeError("shapes fail")
 
-    monkeypatch.setattr("exstruct.core.integrate.get_shapes_with_position", _raise_shapes)
+    monkeypatch.setattr(
+        "exstruct.core.integrate.get_shapes_with_position", _raise_shapes
+    )
 
     class DummyBook:
         def __init__(self, *_a, **_k):

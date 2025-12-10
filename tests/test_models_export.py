@@ -5,13 +5,17 @@ import pytest
 
 from exstruct.models import CellRow, SheetData, WorkbookData
 
-
 HAS_PYYAML = util.find_spec("yaml") is not None
 HAS_TOON = util.find_spec("toon") is not None
 
 
 def _sheet() -> SheetData:
-    return SheetData(rows=[CellRow(r=1, c={"0": "A"})], shapes=[], charts=[], table_candidates=["A1:B2"])
+    return SheetData(
+        rows=[CellRow(r=1, c={"0": "A"})],
+        shapes=[],
+        charts=[],
+        table_candidates=["A1:B2"],
+    )
 
 
 def _workbook() -> WorkbookData:
@@ -22,7 +26,7 @@ def test_workbook_to_json_pretty() -> None:
     wb = _workbook()
     text = wb.to_json(pretty=True)
     assert '"book_name": "sample.xlsx"' in text
-    assert "\n  \"" in text  # pretty indent applied
+    assert '\n  "' in text  # pretty indent applied
 
 
 def test_sheet_to_json_compact() -> None:

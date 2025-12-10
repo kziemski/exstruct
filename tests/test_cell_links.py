@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import pytest
 from openpyxl import Workbook
 
 from exstruct import extract

@@ -1,15 +1,15 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
 import pytest
 
 from exstruct import (
-    WorkbookData,
-    SheetData,
     CellRow,
-    Shape,
     Chart,
     ChartSeries,
+    Shape,
+    SheetData,
+    WorkbookData,
     export,
     export_sheets,
     export_sheets_as,
@@ -89,7 +89,9 @@ def test_JSON_roundtripが破壊的変更なし(tmp_path: Path) -> None:
 
 def test_export_sheetsでシートごとにファイルが出力される(tmp_path: Path) -> None:
     sheet = SheetData(rows=[CellRow(r=1, c={"0": "v"})])
-    wb = WorkbookData(book_name="book.xlsx", sheets={"SheetA": sheet, "SheetB": SheetData()})
+    wb = WorkbookData(
+        book_name="book.xlsx", sheets={"SheetA": sheet, "SheetB": SheetData()}
+    )
     outdir = tmp_path / "sheets"
     paths = export_sheets(wb, outdir)
     assert set(paths.keys()) == {"SheetA", "SheetB"}

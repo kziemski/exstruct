@@ -75,7 +75,7 @@ def extract(file_path: str | Path, mode: ExtractionMode = "standard") -> Workboo
 def export(
     data: WorkbookData,
     path: str | Path,
-    fmt: Optional[Literal["json", "yaml", "yml", "toon"]] = None,
+    fmt: Literal["json", "yaml", "yml", "toon"] | None = None,
     *,
     pretty: bool = False,
     indent: int | None = None,
