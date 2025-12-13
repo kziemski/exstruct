@@ -1,227 +1,167 @@
-# ExStruct Test Requirements Specification
+# ExStruct テスト要件仕様書
 
 Version: 0.2  
 Status: Required for Release
 
-こ�E斁E��は、ExStruct のすべての機�Eに対する **正式なチE��ト要件一覧** であり、E 
-AI エージェント�E人間開発老E��方が参照して自勁E手動チE��トを生�Eできるように設計されてぁE��す、E
+ExStruct の全機能について、正式なテスト要件をまとめたドキュメントです。AI エージェント／人間開発者が自動テスト・手動テストを設計するための基盤とします。
 
 ---
 
-# 1. Test Coverage Categories
-
-ExStruct のチE��ト�E以下�EカチE��リに刁E��される�E�E
-
-1. **セル抽出�E�Eells Extraction�E�E*
-2. **図形抽出�E�Ehapes Extraction�E�E*
-3. **矢印・方向推定！Errow + Direction Detection�E�E*
-4. **チャート抽出�E�Ehart Extraction�E�E*
-5. **意味付与！Eayout Integration�E�E*
-6. **チE�EタモチE��準拠チE��ト！Eydantic Validation�E�E*
-7. **出力フォーマット！ESON/YAML/TOML Writer�E�E*
-8. **CLI チE��チE*
-9. **エラー処琁E�EフェイルセーチE*
-10. **回帰チE��ト！Eegression�E�E*
-11. **パフォーマンス/メモリ要件**
+# 1. カバレッジカテゴリ
+1. セル抽出  
+2. 図形抽出  
+3. 矢印・方向推定  
+4. チャート抽出  
+5. レイアウト統合  
+6. Pydantic 検証  
+7. 出力（JSON/YAML/TOON）  
+8. CLI  
+9. エラー処理・フェイルセーフ  
+10. 回帰  
+11. パフォーマンス／メモリ  
 
 ---
 
-# 2. Functional Test Requirements (詳細要件)
+# 2. 機能要件
+
+## 2.1 セル抽出
+- [CEL-01] 空セルを除外し、非空セルのみ `c` に出力する  
+- [CEL-02] 行番号 `r` は 0 始まり  
+- [CEL-03] 列キーは文字列インデックス `"0"`, `"1"` …  
+- [CEL-04] 改行・タブを含むセルも正しく読み取れる  
+- [CEL-05] Unicode（日本語・絵文字・サロゲート）を保持  
+- [CEL-06] pandas 読み込みで dtype=string を強制  
+- [CEL-07] シート全体規模でも性能劣化しない  
+- [CEL-08] `_coerce_numeric_preserve_format` が int/float/非数を正しく判定  
+- [CEL-09] `detect_tables_openpyxl` が openpyxl Table を検出  
+- [CEL-10] `CellRow.links` は mode=verbose か include_cell_links=True で出力  
+
+## 2.2 図形抽出
+- [SHP-01] AutoShape の type を正規化  
+- [SHP-02] TextFrame を正しく取得  
+- [SHP-03] サイズ `w`,`h` は取得できない場合のみ null  
+- [SHP-04] グループ図形は展開方針を一貫させる  
+- [SHP-05] 座標 `l`,`t` は整数で取得しズームの影響を受けない  
+- [SHP-07] 回転角度が Excel と一致  
+- [SHP-09] begin/end_arrow_style が Excel ENUM と一致  
+- [SHP-10] direction を 8 方位に分類  
+- [SHP-11] テキストなし図形は text=""  
+- [SHP-12] 複数段落のテキストも取得  
+
+## 2.3 矢印方向推定
+- [DIR-01] 0° ±22.5° → "E"  
+- [DIR-02] 45° ±22.5° → "NE"  
+- [DIR-03] 90° ±22.5° → "N"  
+- [DIR-04] 135° ±22.5° → "NW"  
+- [DIR-05] 180° ±22.5° → "W"  
+- [DIR-06] 225° ±22.5° → "SW"  
+- [DIR-07] 270° ±22.5° → "S"  
+- [DIR-08] 315° ±22.5° → "SE"  
+- [DIR-09] 境界角度は仕様どおり丸める  
+
+## 2.4 チャート抽出
+- [CH-01] ChartType は XL_CHART_TYPE_MAP で文字列化  
+- [CH-02] タイトル取得（なければ null）  
+- [CH-03] y_axis_title 取得（なければ空）  
+- [CH-04] 軸 min/max は float  
+- [CH-05] 未設定軸は空リスト  
+- [CH-06] name_range を参照式で出力（例: `=Sheet1!$B$1`）  
+- [CH-07] x_range を参照式で出力  
+- [CH-08] y_range を参照式で出力  
+- [CH-09] 主要チャート種別（散布・棒など）を解析  
+- [CH-10] 失敗時は `error` にメッセージを残しチャートは維持  
+
+## 2.5 レイアウト統合
+- [LAY-01] Shape のテキストを属する行に紐づける  
+- [LAY-02] 列方向の簡易紐づけ（未実装なら skip）  
+- [LAY-03] 1 行に複数 shape がある場合も順序を保持  
+- [LAY-04] 図形なしなら空リスト  
 
 ---
 
-## **2.1 Cells Extraction Requirements**
-
-### 忁E��テスチE
-
-- [CEL-01] 空セルを除外し、E��空セルのみ `c` に出力される
-- [CEL-02] 行番号 `r` ぁE0-based index で正しく出力される
-- [CEL-03] 列番号ぁE`"0"`, `"1"` の **斁E���Eキー** で出力される
-- [CEL-04] セルに改行�Eタブが含まれても正しく読み込める
-- [CEL-05] Unicode�E�絵斁E��、日本語、異体字）セルの読み取り
-- [CEL-06] Pandas 読み込みによる dtype=string 強制が守られてぁE��
-- [CEL-07] セル篁E��が大きいファイルでめE1 丁E��ル程度で性能問題がなぁE
-- [CEL-08] `_coerce_numeric_preserve_format` が整数・小数・非数値を正しく判定すめE
-- [CEL-09] `detect_tables_openpyxl` ぁEopenpyxl の Table オブジェクトを検�Eできる
-- [CEL-10] CellRow.links が�EインチE��クス →URL で格納され、mode=verbose また�E include_cell_links=True のとき�Eみ出力される
+# 3. モデル検証要件
+- [MOD-01] すべてのモデルが `BaseModel` 継承  
+- [MOD-02] 型が DATA_MODEL.md と完全一致  
+- [MOD-03] Optional は未指定で None  
+- [MOD-04] 数値は int/float に正規化  
+- [MOD-05] direction Literal で不正値は ValidationError  
+- [MOD-06] rows/shapes/charts/tables はデフォルト空リスト  
+- [MOD-07] WorkbookData は `__getitem__` と順序付き iteration を提供  
 
 ---
 
-## **2.2 Shapes Extraction Requirements**
-
-### 基本形状
-
-- [SHP-01] AutoShape の type が正しく斁E���E化される
-- [SHP-02] TextFrame の斁E���Eが正しく読み取れめE
-- [SHP-03] サイズ�E�E, h�E�が null にならなぁE��取得不可時�E null�E�E
-- [SHP-04] Group�E�グループ図形�E��Eの子図形がすべて展開されめEor 無視方針が維持される
-
-### 座樁E
-
-- [SHP-05] l, t�E�Eeft, top�E�が整数で取得される
-- [SHP-06] 表示倍率めE��ィンドウズームが変わっても座標が変動しなぁE
-
-### 回転 / 矢印
-
-- [SHP-07] rotation ぁEExcel の回転角度値に一致する
-- [SHP-09] begin_arrow_style / end_arrow_style ぁEExcel の ENUM と一致する
-- [SHP-10] direction ぁE8 方位�E類に従い正しく算�EされめE
-
-### チE��スチE
-
-- [SHP-11] チE��ストなし図形は text="" になめE
-- [SHP-12] 褁E��段落のチE��ストを抽出可能
-
----
-
-## **2.3 Arrow & Direction Deduction Requirements**
-
-矢印図形の方向推定�E精度要件、E
-
-- [DIR-01] 0° ±22.5° ↁE"E"
-- [DIR-02] 45° ±22.5° ↁE"NE"
-- [DIR-03] 90° ±22.5° ↁE"N"
-- [DIR-04] 135° ±22.5° ↁE"NW"
-- [DIR-05] 180° ±22.5° ↁE"W"
-- [DIR-06] 225° ±22.5° ↁE"SW"
-- [DIR-07] 270° ±22.5° ↁE"S"
-- [DIR-08] 315° ±22.5° ↁE"SE"
-- [DIR-09] 墁E��角度の場合、片側に丸める�E�仕様どおり�E�E
+# 4. 出力要件（JSON/YAML/TOON）
+- [EXP-01] None/空文字/空リスト/空 dict は `dict_without_empty_values` で除去  
+- [EXP-02] JSON 出力は UTF-8  
+- [EXP-03] YAML 出力は sort_keys=False  
+- [EXP-04] TOON 出力が正しく生成される  
+- [EXP-05] WorkbookData → JSON → WorkbookData の往復で破壊的変更なし  
+- [EXP-06] `export_sheets` がシート単位でファイル出力  
+- [EXP-07] `to_json` が pretty インデント対応  
+- [EXP-08] `save(path)` は拡張子で判別し、未対応拡張子は ValueError  
+- [EXP-09] `to_yaml` / `to_toon` は依存未導入時 MissingDependencyError、導入済みなら成功  
+- [EXP-10] OutputOptions の include_* で対象フィールドを除外し空リストも出力しない  
+- [EXP-11] `print_areas_dir` / `save_print_area_views` で印刷範囲ごとのファイル出力（範囲なしなら書き出さない）  
+- [EXP-12] PrintAreaView は範囲内の行のみ保持し、範囲外セル/リンクを除外  
+- [EXP-13] PrintAreaView の table_candidates は範囲に完全に収まるもののみ  
+- [EXP-14] normalize=True で行・列インデックスを印刷範囲起点に再基準化  
+- [EXP-15] include_print_areas=False なら print_areas_dir があっても出力しない  
+- [EXP-16] PrintAreaView は範囲と交差する shapes/charts のみ含め、サイズ不明図形は点扱い  
+- [EXP-17] Chart.w/h は verbose で出力、standard ではデフォルト非表示（include_chart_size で制御）  
+- [EXP-18] Shape.w/h は include_shape_size で制御し、デフォルト True は verbose のみ  
+- [EXP-19] auto_page_breaks_dir 指定時に include_auto_page_breaks=True で auto_print_areas を取得（COM 必須）  
+- [EXP-20] export_auto_page_breaks は auto_print_areas が空なら例外、存在時のみ書き出し  
+- [EXP-21] save_auto_page_break_views は auto_print_areas を Sheet1#auto#1 などユニークキーで保存  
+- [EXP-22] serialize_workbook は未対応フォーマットで SerializationError  
 
 ---
 
-## **2.4 Chart Extraction Requirements**
-
-### Chart meta
-
-- [CH-01] ChartType ぁEXL_CHART_TYPE_MAP に基づき文字�E化される
-- [CH-02] Chart Title が取得される�E�なぁE��合�E null�E�E
-- [CH-03] y_axis_title が正しく取得される�E�なぁE��合�E空斁E��！E
-
-### Axis range
-
-- [CH-04] 最封E最大値ぁEfloat で取得される
-- [CH-05] 未設定時は空 list を返す
-
-### Series meta
-
-- [CH-06] name_range ぁEExcel 参�E式で出力される�E�侁E =Sheet1!$B$1�E�E
-- [CH-07] x_range が参照式で出力される
-- [CH-08] y_range が参照式で出力される
-- [CH-09] 散币E��, 冁E��ラチE 棒グラフなど全タイプが解析�E功すめE
-
-### エラー処琁E
-
-- [CH-10] 解析失敗時 error にメチE��ージが�EりクラチE��ュしなぁE
+# 5. CLI 要件
+- [CLI-01] `exstruct extract file.xlsx` が成功する  
+- [CLI-02] `--format json/yaml/toml` が機能する  
+- [CLI-03] `--image` で PNG 出力  
+- [CLI-04] `--pdf` で PDF 出力  
+- [CLI-05] 無効パス入力時も安全終了（クラッシュしない）  
+- [CLI-06] エラーメッセージが stdout/stderr に出力される  
+- [CLI-07] `--print-areas-dir` で印刷範囲ファイルを出力し、include_print_areas=False ならスキップ  
 
 ---
 
-## **2.5 Layout Integration Requirements**
-
-図形とセルの意味皁E��づけに関する要件、E
-
-- [LAY-01] Shape の中忁E��が属する衁Er を正しく推定できる
-- [LAY-02] 列方向�E紐づけ�E仕様に従い簡易に行う�E�未実裁E��めEtest skip�E�E
-- [LAY-03] 1 行に褁E��の shapes が付く場吁Eshape 頁E��を保持する
-- [LAY-04] シートに shapes がなぁE��合�E空 list
-
----
-
-# 3. Model Validation Requirements
-
-pydantic 構造が忁E��仕様どおりであることを検証する、E
-
-- [MOD-01] すべてのモチE��ぁE`BaseModel` を継承してぁE��
-- [MOD-02] 型が DATA_MODEL.md に完�E一致する
-- [MOD-03] Optional の頁E��は未持E��で None になめE
-- [MOD-04] 数値頁E��は int/float として正規化されめE
-- [MOD-05] direction の Literal が仕様外�E場吁EValidationError を投げる
-- [MOD-06] rows/shapes/charts/tables がデフォルトで空 list になめE
-- [MOD-07] WorkbookData は `__getitem__` でシート名持E���E取得ができ、`__iter__` で (sheet_name, SheetData) を頁E��維持で走査できる
+# 6. エラー処理要件
+- [ERR-01] xlwings COM エラーでもプロセスが落ちない  
+- [ERR-02] 図形抽出失敗でも他要素を維持  
+- [ERR-03] チャート抽出失敗時は Chart.error に記録  
+- [ERR-04] 壊れた参照範囲は例外にせず null/error を記録  
+- [ERR-05] Excel ファイルを開けない場合にメッセージを出し終了  
+- [ERR-06] openpyxl `_print_area` 設定も抽出漏れしない  
+- [ERR-07] auto_print_areas が空の場合 export_auto_page_breaks は PrintAreaError（ValueError 互換）を送出  
+- [ERR-08] YAML/TOON 依存なしの場合 MissingDependencyError でインストール案内  
+- [ERR-09] 書き込み失敗は OutputError を送出し元例外は __cause__ に保持  
 
 ---
 
-# 4. Export Requirements (JSON/YAML/TOON)
-
-- [EXP-01] ��l�iNone, "", [], {}�j�� dict_without_empty_values �ɂ�菜�O�����
-- [EXP-02] JSON �o�͂� UTF-8 �ōs����
-- [EXP-03] YAML �o�͂� sort_keys=False �ōs����
-- [EXP-04] TOON �o�͂����������������
-- [EXP-05] WorkbookData �� JSON �� WorkbookData �� round-trip ���j��I�ύX�ɂȂ�Ȃ�
-- [EXP-06] export_sheets �ŃV�[�g���ƂɃt�@�C�����o�͂����
-- [EXP-07] WorkbookData/SheetData �� `to_json` �� pretty �I�v�V�����ŃC���f���g�����
-- [EXP-08] WorkbookData/SheetData �� `save(path)` ���g���q�Ńt�H�[�}�b�g���������ʂ��A���Ή��g���q�� ValueError �ƂȂ�
-- [EXP-09] WorkbookData/SheetData �� `to_yaml` / `to_toon` �͈ˑ����������� MissingDependencyError ��Ԃ��A�����ς݂Ȃ琳��ɕԂ�
-- [EXP-10] ExStructEngine �� OutputOptions �� include_shapes/charts/tables/rows �� False �ɂ���ƑΉ��t�B�[���h���o�͂��珜�O�����i�󃊃X�g��������j
-- [EXP-11] print_areas_dir / save_print_area_views �� PrintArea ���Ƃ̃t�@�C�����o�͂ł��A����͈͂������ꍇ�͉��������o���Ȃ�
-- [EXP-12] PrintAreaView �� area �Ɋ��S�Ɋ܂܂��s�݂̂�ێ����A�͈͊O�̃Z���E�����N�𗎂Ƃ�
-- [EXP-13] PrintAreaView �� table_candidates �͈���͈͂Ɋ��S�Ɏ��܂���݂̂�ێ�����
-- [EXP-14] normalize �I�v�V�����w�莞�APrintAreaView �̍s�E��C���f�b�N�X�͈���͈͋N�_�ɍĊ�������
-- [EXP-15] OutputOptions.include_print_areas=False �̂Ƃ��Aprint_areas_dir ���w�肳��Ă�����͈̓t�@�C�����o�͂��Ȃ�
-- [EXP-16] PrintAreaView �� shapes/charts ���܂߁A����͈͂ƌ���������̂̂ݏo�͂���i�T�C�Y�s���̐}�`�͓_�Ƃ��Ĕ���j
-- [EXP-17] Chart.w/h �� verbose �ł͏o�͂���Astandard �ł̓f�t�H���g�o�͂��Ȃ��iinclude_chart_size �t���O�Ő���j
-- [EXP-18] Shape.w/h �̏o�͂� include_shape_size �t���O�Ő��䂳��A�f�t�H���g�� verbose �̂� True
-- [EXP-19] auto_page_breaks_dir ���w�肵�AExStructEngine �ł� extract_workbook �� include_auto_page_breaks=True ���n��Aauto_print_areas ���擾�����iCOM ���O��j
-- [EXP-20] export_auto_page_breaks �� auto_print_areas ����̏ꍇ�ɖ����I�ȗ�O��Ԃ��A���݂���ꍇ�̂ݏ����o��
-- [EXP-21] save_auto_page_break_views �� auto_print_areas ���w��p�X�ɏ����o����A�L�[�� Sheet1#auto#1 �Ȃǂ���ӂɕt�^�����
-- [EXP-22] serialize_workbook �ɖ��Ή��t�H�[�}�b�g��n���� SerializationError ����������
-# 5. CLI Requirements
-
-- [CLI-01] `exstruct extract file.xlsx` が�E功すめE
-- [CLI-02] `--format json/yaml/toml` が機�Eする
-- [CLI-03] `--image` で PNG が�E力される
-- [CLI-04] `--pdf` で PDF が�E力される
-- [CLI-05] 無効ファイル選択時は安�Eに終亁E��めE
-- [CLI-06] エラーメチE��ージぁEstdout に出力される
-- [CLI-07] `--print-areas-dir` 持E��時に印刷篁E��ごとのファイルが�E力される�E�Enclude_print_areas=False の場合�EスキチE�E�E�E
+# 7. 回帰要件
+- [REG-01] 既存フィクスチャの JSON 構造が過去版と一致  
+- [REG-02] モデルのキー削除・名称変更を破壊的変更として検知  
+- [REG-03] 方向推定アルゴリズム変更を検知  
+- [REG-04] ChartSeries 参照解析が過去結果と一致  
 
 ---
 
-# 6. Error Handling Requirements
-
-- [ERR-01] xlwings COM �G���[�ł��v���Z�X�������Ȃ�
-- [ERR-02] �}�`���o���s���ł����v�f���擾�����
-- [ERR-03] Chart extraction failure �� Chart.error �ɖ��������
-- [ERR-04] �ُ�ȎQ�Ɣ͈́ibroken range�j�͗�O������ null �� error �ɋL�^
-- [ERR-05] Excel �t�@�C�����J���Ȃ��ꍇ�Ƀ��b�Z�[�W���o���ďI������
-- [ERR-06] openpyxl �� `_print_area` �ɐݒ肳�ꂽ����͈͂����݂���ꍇ�ł����o�R�ꂵ�Ȃ�
-- [ERR-07] export_auto_page_breaks �� auto_print_areas ����̏ꍇ�� PrintAreaError�iValueError �݊��j�𑗏o����
-- [ERR-08] YAML/TOON �ˑ����������̏ꍇ�AMissingDependencyError ���������C���X�g�[���菇���ē�����
-- [ERR-09] �t�@�C���������݂Ɏ��s�����ꍇ�AOutputError �����o�����i����O�� __cause__ �ɕێ��j
-# 7. Regression Requirements
-
-- [REG-01] 過去バ�Eジョンと同じ Excel を�E力したとき、�E劁EJSON の構造が変わらなぁE
-- [REG-02] Models のキー削除 or 名前変更はすべて破壊的変更として検知する
-- [REG-03] 方向推定アルゴリズムの変更検知
-- [REG-04] ChartSeries の参�E篁E��解析が過去結果と一致する
+# 8. 非機能要件
+- パフォーマンス／メモリ目標は別途定義時に追記  
 
 ---
 
-# 8. Non-Functional Requirements
-
-### Performance
-
-<!-- - [PERF-01] 未宁E-->
-
-### Memory
-
-<!-- - [MEM-01] 100MB の Excel を扱ぁE��に Python プロセスぁE1GB を趁E��なぁE
-- [MEM-02] レンダリング�E�ENG�E�時にリークがなぁE-->
-
----
-
-# 9. Mode Output Requirements
-
-- [MODE-01] CLI `--mode` と API `extract(..., mode=)` ぁE`light`/`standard`/`verbose` のみ受け付け、デフォルト�E `standard`
-- [MODE-02] `light` モード�EセルとチE�Eブルのみ返し、shapes/charts は空で COM アクセスもしなぁE
-- [MODE-03] `standard` モード�E既存挙動を維持し、テキスト付き図形また�E矢印系のみ出力し、COM 有効時�Eチャート取征E
-- [MODE-04] `verbose` モード�E chart/comment/picture/form control 以外�E全図形を�E力し、テキスト�E有無にかかわらぁE`w`/`h` を忁E��含める
-- [MODE-05] `process_excel` でモード指定が伝搬し、PDF/画像オプション併用でも正常終亁E��めE
-- [MODE-06] `standard` モードで既存フィクスチャの出力に回帰がなぁE��不要な図形が増えなぁE��E
-- [MODE-07] 無効なモード値は処琁E��始前にエラーとなめE
-- [INT-01] COM オープン失敗時に `extract_workbook` がセル�E�テーブル候補�Eみを返すフォールバックを行う
-- [IO-05] `dict_without_empty_values` ぁENone/空リスチE空辞書/空斁E���Eを除去しネスト構造を保持する
-- [RENDER-01] Excel+COM+pypdfium2 環墁E�� PDF/PNG を�E力できるスモークチE��ト（環墁E��数でオンオフ可能�E�E
-- [MODE-08] `light` モードでも印刷篁E��めEopenpyxl で抽出するが、デフォルト�E力では print_areas を含めなぁE��Euto 判定！E
-
-
+# 9. モード出力要件
+- [MODE-01] CLI `--mode` / API `extract(..., mode=)` は light/standard/verbose のみ（デフォルト standard）  
+- [MODE-02] light: セル+テーブルのみ、shapes/charts 空、COM 不使用  
+- [MODE-03] standard: 既存挙動（テキスト付き図形・矢印、COM 有効ならチャート）  
+- [MODE-04] verbose: 全図形（サイズ付き）とチャート（サイズ付き、特定除外を除く）  
+- [MODE-05] process_excel は PDF/画像オプション併用でも mode を伝搬  
+- [MODE-06] standard で既存フィクスチャに回帰し不要図形が増えない  
+- [MODE-07] 無効 mode は処理開始前にエラー  
+- [INT-01] COM オープン失敗時はセル+table_candidates へのフォールバック  
+- [IO-05] dict_without_empty_values で None/空リスト/空 dict を除去しネストを保持  
+- [RENDER-01] Excel+COM+pypdfium2 の PDF/PNG スモークテスト（環境で ON/OFF）  
+- [MODE-08] light でも openpyxl で print_areas 抽出、デフォルト出力は除外（auto 判定）  
