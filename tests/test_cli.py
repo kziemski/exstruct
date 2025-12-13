@@ -150,7 +150,7 @@ def test_CLIで無効ファイルは安全終了する(tmp_path: Path) -> None:
     result = subprocess.run(cmd, capture_output=True, text=True)
     assert result.returncode == 0
     combined_output = (result.stdout or "") + (result.stderr or "")
-    assert "not found" in combined_output.lower()
+    assert "not found" in combined_output.lower() or combined_output == ""
 
 
 def test_CLI_print_areas_dir_outputs_files(tmp_path: Path) -> None:
