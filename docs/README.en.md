@@ -2,7 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/exstruct.svg)](https://pypi.org/project/exstruct/) [![PyPI Downloads](https://static.pepy.tech/personalized-badge/exstruct?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/exstruct) ![Licence: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue?style=flat-square) [![pytest](https://github.com/harumiWeb/exstruct/actions/workflows/pytest.yml/badge.svg)](https://github.com/harumiWeb/exstruct/actions/workflows/pytest.yml)
 
-![ExStruct Image](/docs/assets/icon.webp)
+![ExStruct Image](assets/icon.webp)
 
 ExStruct reads Excel workbooks and outputs structured data (cells, table candidates, shapes, charts, print areas/views, auto page-break areas, hyperlinks) as JSON by default, with optional YAML/TOON formats. It targets both COM/Excel environments (rich extraction) and non-COM environments (cells + table candidates + print areas), with tunable detection heuristics and multiple output modes to fit LLM/RAG pipelines.
 
@@ -157,7 +157,7 @@ To show how well exstruct can structure Excel, we parse a workbook that combines
 - Flowchart built only with shapes
 
 (Screenshot below is the actual sample Excel sheet)
-![Sample Excel](/docs/assets/demo_sheet.png)
+![Sample Excel](assets/demo_sheet.png)
 Sample workbook: `sample/sample.xlsx`
 Sample workbook: `sample/sample.xlsx`
 
@@ -353,6 +353,11 @@ In short, **exstruct = “an engine that converts Excel into a format AI can und
 - Use `export_print_areas_as(...)` or CLI `--print-areas-dir` to write one file per print area (nothing is written if none exist).
 - Use `DestinationOptions.auto_page_breaks_dir` (preferred) or `export_auto_page_breaks(...)` to write per-auto-page-break files; the API raises `ValueError` if no auto page breaks exist.
 - `PrintAreaView` includes rows and table candidates inside the area, plus shapes/charts that overlap the area (size-less shapes are treated as points). `normalize=True` rebases row/col indices to the area origin.
+
+## Documentation build
+
+- Update generated model docs before building the site: `python scripts/gen_model_docs.py`.
+- Build locally with mkdocs + mkdocstrings (dev deps required): `uv run mkdocs serve` or `uv run mkdocs build`.
 
 ## License
 

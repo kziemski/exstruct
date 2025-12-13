@@ -9,59 +9,105 @@ from pydantic import BaseModel, Field
 
 
 class Shape(BaseModel):
-    text: str
-    l: int  # noqa: E741
-    t: int
-    w: int | None
-    h: int | None
-    type: str | None = None
-    rotation: float | None = None
-    begin_arrow_style: int | None = None
-    end_arrow_style: int | None = None
-    direction: Literal["E", "SE", "S", "SW", "W", "NW", "N", "NE"] | None = None
+    """Shape metadata (position, size, text, and styling)."""
+
+    text: str = Field(description="Visible text content of the shape.")
+    l: int = Field(description="Left offset (Excel units).")  # noqa: E741
+    t: int = Field(description="Top offset (Excel units).")
+    w: int | None = Field(default=None, description="Shape width (None if unknown).")
+    h: int | None = Field(default=None, description="Shape height (None if unknown).")
+    type: str | None = Field(default=None, description="Excel shape type name.")
+    rotation: float | None = Field(
+        default=None, description="Rotation angle in degrees."
+    )
+    begin_arrow_style: int | None = Field(
+        default=None, description="Arrow style enum for the start of a connector."
+    )
+    end_arrow_style: int | None = Field(
+        default=None, description="Arrow style enum for the end of a connector."
+    )
+    direction: Literal["E", "SE", "S", "SW", "W", "NW", "N", "NE"] | None = Field(
+        default=None, description="Connector direction (compass heading)."
+    )
 
 
 class CellRow(BaseModel):
-    r: int
-    c: dict[str, int | float | str]
-    links: dict[str, str] | None = None
+    """A single row of cells with optional hyperlinks."""
+
+    r: int = Field(description="Row index (1-based).")
+    c: dict[str, int | float | str] = Field(
+        description="Column index (string) to cell value map."
+    )
+    links: dict[str, str] | None = Field(
+        default=None, description="Optional hyperlinks per column index."
+    )
 
 
 class ChartSeries(BaseModel):
-    name: str
-    name_range: str | None = None
-    x_range: str | None = None
-    y_range: str | None = None
+    """Series metadata for a chart."""
+
+    name: str = Field(description="Series display name.")
+    name_range: str | None = Field(
+        default=None, description="Range reference for the series name."
+    )
+    x_range: str | None = Field(
+        default=None, description="Range reference for X axis values."
+    )
+    y_range: str | None = Field(
+        default=None, description="Range reference for Y axis values."
+    )
 
 
 class Chart(BaseModel):
-    name: str
-    chart_type: str
-    title: str | None
-    y_axis_title: str
-    y_axis_range: list[float] = Field(default_factory=list)
-    w: int | None = None
-    h: int | None = None
-    series: list[ChartSeries]
-    l: int  # noqa: E741
-    t: int
-    error: str | None = None
+    """Chart metadata including series and layout."""
+
+    name: str = Field(description="Chart name.")
+    chart_type: str = Field(description="Chart type (e.g., Column, Line).")
+    title: str | None = Field(default=None, description="Chart title.")
+    y_axis_title: str = Field(description="Y-axis title.")
+    y_axis_range: list[float] = Field(
+        default_factory=list, description="Y-axis range [min, max] when available."
+    )
+    w: int | None = Field(default=None, description="Chart width (None if unknown).")
+    h: int | None = Field(default=None, description="Chart height (None if unknown).")
+    series: list[ChartSeries] = Field(description="Series included in the chart.")
+    l: int = Field(description="Left offset (Excel units).")  # noqa: E741
+    t: int = Field(description="Top offset (Excel units).")
+    error: str | None = Field(
+        default=None, description="Extraction error detail if any."
+    )
 
 
 class PrintArea(BaseModel):
-    r1: int
-    c1: int
-    r2: int
-    c2: int
+    """Cell coordinate bounds for a print area."""
+
+    r1: int = Field(description="Start row (1-based).")
+    c1: int = Field(description="Start column (1-based).")
+    r2: int = Field(description="End row (1-based, inclusive).")
+    c2: int = Field(description="End column (1-based, inclusive).")
 
 
 class SheetData(BaseModel):
-    rows: list[CellRow] = Field(default_factory=list)
-    shapes: list[Shape] = Field(default_factory=list)
-    charts: list[Chart] = Field(default_factory=list)
-    table_candidates: list[str] = Field(default_factory=list)
-    print_areas: list[PrintArea] = Field(default_factory=list)
-    auto_print_areas: list[PrintArea] = Field(default_factory=list)
+    """Structured data for a single sheet."""
+
+    rows: list[CellRow] = Field(
+        default_factory=list, description="Extracted rows with cell values and links."
+    )
+    shapes: list[Shape] = Field(
+        default_factory=list, description="Shapes detected on the sheet."
+    )
+    charts: list[Chart] = Field(
+        default_factory=list, description="Charts detected on the sheet."
+    )
+    table_candidates: list[str] = Field(
+        default_factory=list, description="Cell ranges likely representing tables."
+    )
+    print_areas: list[PrintArea] = Field(
+        default_factory=list, description="User-defined print areas."
+    )
+    auto_print_areas: list[PrintArea] = Field(
+        default_factory=list, description="COM-computed auto page-break areas."
+    )
 
     def _as_payload(self) -> dict[str, object]:
         from ..io import dict_without_empty_values
@@ -127,8 +173,12 @@ class SheetData(BaseModel):
 
 
 class WorkbookData(BaseModel):
-    book_name: str
-    sheets: dict[str, SheetData]
+    """Workbook-level container with per-sheet data."""
+
+    book_name: str = Field(description="Workbook file name (no path).")
+    sheets: dict[str, SheetData] = Field(
+        description="Mapping of sheet name to SheetData."
+    )
 
     def to_json(self, *, pretty: bool = False, indent: int | None = None) -> str:
         """
@@ -189,13 +239,23 @@ class WorkbookData(BaseModel):
 
 
 class PrintAreaView(BaseModel):
-    book_name: str
-    sheet_name: str
-    area: PrintArea
-    shapes: list[Shape] = Field(default_factory=list)
-    charts: list[Chart] = Field(default_factory=list)
-    rows: list[CellRow] = Field(default_factory=list)
-    table_candidates: list[str] = Field(default_factory=list)
+    """Slice of a sheet restricted to a print area (manual or auto)."""
+
+    book_name: str = Field(description="Workbook name owning the area.")
+    sheet_name: str = Field(description="Sheet name owning the area.")
+    area: PrintArea = Field(description="Print area bounds.")
+    shapes: list[Shape] = Field(
+        default_factory=list, description="Shapes overlapping the area."
+    )
+    charts: list[Chart] = Field(
+        default_factory=list, description="Charts overlapping the area."
+    )
+    rows: list[CellRow] = Field(
+        default_factory=list, description="Rows within the area bounds."
+    )
+    table_candidates: list[str] = Field(
+        default_factory=list, description="Table candidates intersecting the area."
+    )
 
     def _as_payload(self) -> dict[str, object]:
         from ..io import dict_without_empty_values

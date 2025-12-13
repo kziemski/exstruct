@@ -2,7 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/exstruct.svg)](https://pypi.org/project/exstruct/) [![PyPI Downloads](https://static.pepy.tech/personalized-badge/exstruct?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/exstruct) ![Licence: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue?style=flat-square) [![pytest](https://github.com/harumiWeb/exstruct/actions/workflows/pytest.yml/badge.svg)](https://github.com/harumiWeb/exstruct/actions/workflows/pytest.yml)
 
-![ExStruct Image](/docs/assets/icon.webp)
+![ExStruct Image](assets/icon.webp)
 
 ExStruct は Excel ワークブックを読み取り、構造化データ（セル・テーブル候補・図形・チャート・印刷範囲ビュー）をデフォルトで JSON に出力します。必要に応じて YAML/TOON も選択でき、COM/Excel 環境ではリッチ抽出、非 COM 環境ではセル＋テーブル候補＋印刷範囲へのフォールバックで安全に動作します。LLM/RAG 向けに検出ヒューリスティックや出力モードを調整可能です。
 
@@ -159,7 +159,7 @@ exstruct input.xlsx --pdf --image --dpi 144
 - 図形のみで作成したフローチャート
 
 （下画像が実際のサンプル Excel シート）
-![Sample Excel](/docs/assets/demo_sheet.png)
+![Sample Excel](assets/demo_sheet.png)
 サンプル Excel: `sample/sample.xlsx`
 
 ### 1. Input: Excel Sheet Overview
@@ -356,6 +356,11 @@ flowchart TD
 - `export_print_areas_as(...)` や CLI `--print-areas-dir` で印刷範囲ごとにファイルを出力できます（印刷範囲が無い場合はファイルを作りません）。
 - `DestinationOptions.auto_page_breaks_dir`（推奨）または `export_auto_page_breaks(...)` で自動改ページ範囲ごとにファイルを出力できます。自動改ページが存在しない場合、`export_auto_page_breaks(...)` は `ValueError` を送出します。
 - `PrintAreaView` には範囲内の行・テーブル候補に加え、範囲と交差する図形/チャートを含みます（サイズ不明の図形は座標のみで判定）。`normalize=True` で行/列を範囲起点に再基準化できます。
+
+## ドキュメントビルド
+
+- サイトビルド前にモデル断片を再生成してください: `python scripts/gen_model_docs.py`
+- mkdocs + mkdocstrings でローカルビルド（開発用依存が必要）: `uv run mkdocs serve` または `uv run mkdocs build`
 
 ## License
 
