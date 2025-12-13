@@ -96,4 +96,5 @@ def test_excelファイルが開けない場合はメッセージを出して終
     cmd = [sys.executable, "-m", "exstruct.cli.main", str(bad_path), "-o", str(out)]
     result = subprocess.run(cmd, capture_output=True, text=True)
     assert result.returncode == 0
+    assert result.stdout is not None, f"stdout was None, stderr: {result.stderr}"
     assert "file not found" in result.stdout.lower()
