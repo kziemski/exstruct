@@ -87,6 +87,13 @@ class PrintArea(BaseModel):
     c2: int = Field(description="End column (1-based, inclusive).")
 
 
+class ColorsMap(BaseModel):
+    color: str = Field(description="Hex color code, e.g., #RRGGBB.")
+    cells: list[tuple[int, int]] = Field(
+        description="List of (row, column) tuples with this background color."
+    )
+
+
 class SheetData(BaseModel):
     """Structured data for a single sheet."""
 
@@ -107,6 +114,9 @@ class SheetData(BaseModel):
     )
     auto_print_areas: list[PrintArea] = Field(
         default_factory=list, description="COM-computed auto page-break areas."
+    )
+    colors_map: list[ColorsMap] = Field(
+        default_factory=list, description="Color mapping for background colors."
     )
 
     def _as_payload(self) -> dict[str, object]:
