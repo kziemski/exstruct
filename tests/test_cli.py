@@ -288,9 +288,7 @@ def test_CLI_print_areas_dir_outputs_files(tmp_path: Path) -> None:
     )
     assert result.returncode == 0
     files = list(areas_dir.glob("*.json"))
-    assert (
-        files
-    ), (
+    assert files, (
         "No print area files created. "
         f"stdout={_stdout_text(result)} stderr={_stderr_text(result)}"
     )
