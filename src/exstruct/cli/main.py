@@ -16,8 +16,12 @@ def _ensure_utf8_stdout() -> None:
     environments that already default to UTF-8.
     """
 
+    stdout = sys.stdout
+    if not hasattr(stdout, "reconfigure"):
+        return
+    reconfigure = stdout.reconfigure
     try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="strict")
+        reconfigure(encoding="utf-8", errors="replace")
     except (AttributeError, ValueError):
         return
 
