@@ -111,7 +111,11 @@ def _run_cli(
         The completed process result from ``subprocess.run``.
     """
 
-    base_cmd = _cli_command_prefix()
+    base_cmd = [
+        sys.executable,
+        "-m",
+        "exstruct.cli.main",
+    ]
     safe_args = _sanitize_cli_args(args)
     return subprocess.run(
         [*base_cmd, *safe_args],
@@ -121,12 +125,6 @@ def _run_cli(
         shell=False,
         check=False,
     )
-
-
-def _cli_command_prefix() -> list[str]:
-    """Return a static CLI command prefix to avoid dynamic shell construction."""
-
-    return [sys.executable, "-m", "exstruct.cli.main"]
 
 
 def _sanitize_cli_args(args: list[str]) -> list[str]:
