@@ -116,19 +116,18 @@ def _run_cli(
     # - The command prefix is fully static and controlled by the test suite.
     # - ``safe_args`` is sanitized to reject control characters.
     # - ``shell`` remains False to avoid shell interpretation.
+    base_cmd = [sys.executable, "-m", "exstruct.cli.main"]
+
+    # nosec B603,B607: command prefix is fully static, arguments are sanitized,
+    # and shell=False prevents shell interpretation.
     return subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "exstruct.cli.main",
-            *safe_args,
-        ],
+        [*base_cmd, *safe_args],
         capture_output=True,
         text=text,
         env=env,
         shell=False,
         check=False,
-    )  # nosec: B603,B607 - command prefix is static and arguments are sanitized
+    )
 
 
 def _sanitize_cli_args(args: list[str]) -> list[str]:
