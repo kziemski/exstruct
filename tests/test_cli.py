@@ -118,8 +118,9 @@ def _run_cli(
     # - ``shell`` remains False to avoid shell interpretation.
     base_cmd = [sys.executable, "-m", "exstruct.cli.main"]
 
-    # nosec B603,B607: command prefix is fully static, arguments are sanitized,
-    # and shell=False prevents shell interpretation.
+    # nosemgrep: python.lang.security.subprocess.run-non-literal
+    # The command prefix is fully static and controlled by tests; arguments are
+    # sanitized and shell interpretation is disabled.
     return subprocess.run(
         [*base_cmd, *safe_args],
         capture_output=True,
