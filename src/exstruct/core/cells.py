@@ -305,6 +305,7 @@ def _prepare_workbook_for_display_format(workbook: xw.Book) -> None:
         workbook: xlwings workbook instance.
     """
     try:
+        # Force calculation to ensure DisplayFormat.Interior reflects conditional formatting rules
         workbook.app.calculate()
     except Exception:
         return
@@ -317,10 +318,12 @@ def _prepare_sheet_for_display_format(sheet: xw.Sheet) -> None:
         sheet: Target worksheet.
     """
     try:
+        # Activate sheet so DisplayFormat is available
         sheet.api.Activate()
     except Exception:
         return
     try:
+        # Calculate to apply conditional formatting to DisplayFormat
         sheet.api.Calculate()
     except Exception:
         return
