@@ -131,7 +131,7 @@ set_table_detection_params(
 
 - **light**: セル＋テーブル候補のみ（COM 不要）。
 - **standard**: テキスト付き図形＋矢印、チャート（COM ありで取得）、テーブル候補。セルのハイパーリンクは `include_cell_links=True` を指定したときのみ出力。
-- **verbose**: 全図形（幅・高さ付き）、チャート、テーブル候補、セルのハイパーリンク。
+- **verbose**: all shapes, charts, table_candidates, hyperlinks, and `colors_map`.
 
 ## エラーハンドリング / フォールバック
 

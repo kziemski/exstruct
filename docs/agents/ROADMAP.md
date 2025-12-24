@@ -27,7 +27,7 @@
 
 - セルの背景色情報の構造化
 
-## v0.3.0
+## v0.4.0
 
 - SmartArt 解析
 - Excel Form Controls 解析
