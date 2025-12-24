@@ -304,6 +304,7 @@ def extract_workbook(  # noqa: C901
     include_auto_page_breaks: bool = False,
     include_colors_map: bool = False,
     include_default_background: bool = False,
+    ignore_colors: set[str] | None = None,
 ) -> WorkbookData:
     """Extract workbook and return WorkbookData; fallback to cells+tables if Excel COM is unavailable."""
     if mode not in _ALLOWED_MODES:
@@ -317,6 +318,7 @@ def extract_workbook(  # noqa: C901
             colors_map_data = extract_sheet_colors_map(
                 normalized_file_path,
                 include_default_background=include_default_background,
+                ignore_colors=ignore_colors,
             )
         except Exception as exc:
             logger.warning(
@@ -341,6 +343,7 @@ def extract_workbook(  # noqa: C901
                 fallback_colors = extract_sheet_colors_map(
                     normalized_file_path,
                     include_default_background=include_default_background,
+                    ignore_colors=ignore_colors,
                 )
             except Exception as exc:
                 logger.warning(
@@ -390,7 +393,9 @@ def extract_workbook(  # noqa: C901
             if include_colors_map and colors_map_data is None:
                 try:
                     colors_map_data = extract_sheet_colors_map_com(
-                        wb, include_default_background=include_default_background
+                        wb,
+                        include_default_background=include_default_background,
+                        ignore_colors=ignore_colors,
                     )
                 except Exception as exc:
                     logger.warning(
@@ -401,6 +406,7 @@ def extract_workbook(  # noqa: C901
                         colors_map_data = extract_sheet_colors_map(
                             normalized_file_path,
                             include_default_background=include_default_background,
+                            ignore_colors=ignore_colors,
                         )
                     except Exception as fallback_exc:
                         logger.warning(

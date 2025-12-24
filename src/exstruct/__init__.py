@@ -7,6 +7,7 @@ from typing import Literal, TextIO
 from .core.cells import set_table_detection_params
 from .core.integrate import extract_workbook
 from .engine import (
+    ColorsOptions,
     DestinationOptions,
     ExStructEngine,
     FilterOptions,
@@ -76,6 +77,7 @@ __all__ = [
     "OutputOptions",
     "FilterOptions",
     "DestinationOptions",
+    "ColorsOptions",
     "serialize_workbook",
     "export_auto_page_breaks",
 ]

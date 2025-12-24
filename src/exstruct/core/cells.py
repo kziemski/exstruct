@@ -67,7 +67,7 @@ class WorkbookColorsMap:
 
 
 def extract_sheet_colors_map(
-    file_path: Path, *, include_default_background: bool
+    file_path: Path, *, include_default_background: bool, ignore_colors: set[str] | None
 ) -> WorkbookColorsMap:
     """Extract background colors for each worksheet.
 
@@ -75,6 +75,7 @@ def extract_sheet_colors_map(
         file_path: Excel workbook path.
         include_default_background: Whether to include default (white) backgrounds
             within the used range.
+        ignore_colors: Optional set of color keys to ignore.
 
     Returns:
         WorkbookColorsMap containing per-sheet color maps.
@@ -83,7 +84,9 @@ def extract_sheet_colors_map(
     sheets: dict[str, SheetColorsMap] = {}
     try:
         for ws in wb.worksheets:
-            sheet_map = _extract_sheet_colors(ws, include_default_background)
+            sheet_map = _extract_sheet_colors(
+                ws, include_default_background, ignore_colors
+            )
             sheets[ws.title] = sheet_map
     finally:
         wb.close()
@@ -91,7 +94,10 @@ def extract_sheet_colors_map(
 
 
 def extract_sheet_colors_map_com(
-    workbook: xw.Book, *, include_default_background: bool
+    workbook: xw.Book,
+    *,
+    include_default_background: bool,
+    ignore_colors: set[str] | None,
 ) -> WorkbookColorsMap:
     """Extract background colors for each worksheet via COM display formats.
 
@@ -99,6 +105,7 @@ def extract_sheet_colors_map_com(
         workbook: xlwings workbook instance.
         include_default_background: Whether to include default (white) backgrounds
             within the used range.
+        ignore_colors: Optional set of color keys to ignore.
 
     Returns:
         WorkbookColorsMap containing per-sheet color maps.
@@ -107,19 +114,22 @@ def extract_sheet_colors_map_com(
     sheets: dict[str, SheetColorsMap] = {}
     for sheet in workbook.sheets:
         _prepare_sheet_for_display_format(sheet)
-        sheet_map = _extract_sheet_colors_com(sheet, include_default_background)
+        sheet_map = _extract_sheet_colors_com(
+            sheet, include_default_background, ignore_colors
+        )
         sheets[sheet.name] = sheet_map
     return WorkbookColorsMap(sheets=sheets)
 
 
 def _extract_sheet_colors(
-    ws: Worksheet, include_default_background: bool
+    ws: Worksheet, include_default_background: bool, ignore_colors: set[str] | None
 ) -> SheetColorsMap:
     """Extract background colors for a single worksheet.
 
     Args:
         ws: Target worksheet.
         include_default_background: Whether to include default (white) backgrounds.
+        ignore_colors: Optional set of color keys to ignore.
 
     Returns:
         SheetColorsMap for the worksheet.
@@ -129,6 +139,7 @@ def _extract_sheet_colors(
     if min_row > max_row or min_col > max_col:
         return SheetColorsMap(sheet_name=ws.title, colors_map=colors_map)
 
+    ignore_set = _normalize_ignore_colors(ignore_colors)
     for row in ws.iter_rows(
         min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col
     ):
@@ -136,18 +147,24 @@ def _extract_sheet_colors(
             color_key = _resolve_cell_background(cell, include_default_background)
             if color_key is None:
                 continue
-            colors_map.setdefault(color_key, []).append((cell.row, cell.col_idx - 1))
+            normalized_key = _normalize_color_key(color_key)
+            if _should_ignore_color(normalized_key, ignore_set):
+                continue
+            colors_map.setdefault(normalized_key, []).append(
+                (cell.row, cell.col_idx - 1)
+            )
     return SheetColorsMap(sheet_name=ws.title, colors_map=colors_map)
 
 
 def _extract_sheet_colors_com(
-    sheet: xw.Sheet, include_default_background: bool
+    sheet: xw.Sheet, include_default_background: bool, ignore_colors: set[str] | None
 ) -> SheetColorsMap:
     """Extract background colors for a single worksheet via COM.
 
     Args:
         sheet: Target worksheet.
         include_default_background: Whether to include default (white) backgrounds.
+        ignore_colors: Optional set of color keys to ignore.
 
     Returns:
         SheetColorsMap for the worksheet.
@@ -159,6 +176,7 @@ def _extract_sheet_colors_com(
     if max_row <= 0 or max_col <= 0:
         return SheetColorsMap(sheet_name=sheet.name, colors_map=colors_map)
 
+    ignore_set = _normalize_ignore_colors(ignore_colors)
     for row in range(1, max_row + 1):
         for col in range(1, max_col + 1):
             color_key = _resolve_cell_background_com(
@@ -166,7 +184,10 @@ def _extract_sheet_colors_com(
             )
             if color_key is None:
                 continue
-            colors_map.setdefault(color_key, []).append((row, col - 1))
+            normalized_key = _normalize_color_key(color_key)
+            if _should_ignore_color(normalized_key, ignore_set):
+                continue
+            colors_map.setdefault(normalized_key, []).append((row, col - 1))
     return SheetColorsMap(sheet_name=sheet.name, colors_map=colors_map)
 
 
@@ -338,6 +359,55 @@ def _excel_color_int_to_rgb_hex(color_value: int) -> str:
     green = (color_value >> 8) & 0xFF
     blue = (color_value >> 16) & 0xFF
     return f"{red:02X}{green:02X}{blue:02X}"
+
+
+def _normalize_color_key(color_key: str) -> str:
+    """Normalize a color key into a canonical representation.
+
+    Args:
+        color_key: Raw color key (hex or themed/indexed).
+
+    Returns:
+        Normalized color key.
+    """
+    trimmed = color_key.strip()
+    if not trimmed:
+        return ""
+    lowered = trimmed.lower()
+    if lowered.startswith(("theme:", "indexed:", "auto:")) or lowered == "auto":
+        return lowered
+    hex_key = trimmed.lstrip("#").upper()
+    if len(hex_key) == 8:
+        hex_key = hex_key[2:]
+    return hex_key
+
+
+def _normalize_ignore_colors(ignore_colors: set[str] | None) -> set[str]:
+    """Normalize ignore color keys.
+
+    Args:
+        ignore_colors: Optional set of color keys to ignore.
+
+    Returns:
+        Normalized set of color keys.
+    """
+    if not ignore_colors:
+        return set()
+    normalized = {_normalize_color_key(color) for color in ignore_colors}
+    return {color for color in normalized if color}
+
+
+def _should_ignore_color(color_key: str, ignore_colors: set[str]) -> bool:
+    """Check whether a color key should be ignored.
+
+    Args:
+        color_key: Normalized color key.
+        ignore_colors: Normalized ignore color set.
+
+    Returns:
+        True when the color key is ignored.
+    """
+    return color_key in ignore_colors
 
 
 def _color_to_key(color: Color | object) -> str | None:
