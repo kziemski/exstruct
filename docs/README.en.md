@@ -335,6 +335,12 @@ From this we can see:
 
 **exstruct's JSON is already in a format that AI can read and reason over directly.**
 
+Other LLM inference samples using this library can be found in the following directory:
+
+- [Basic Excel](sample/basic/)
+- [Flowchart](sample/flowchart/)
+- [Gantt Chart](sample/gantt_chart/)
+
 ### 4. Summary
 
 This benchmark confirms exstruct can:

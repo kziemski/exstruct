@@ -339,6 +339,12 @@ flowchart TD
 
 ということが明確に示されています。
 
+その他の本ライブラリを使ったLLM推論サンプルは以下のディレクトリにあります。
+
+- [Basic Excel](sample/basic/)
+- [Flowchart](sample/flowchart/)
+- [Gantt Chart](sample/gantt_chart/)
+
 ### 4. Summary
 
 このベンチマークにより、本ライブラリが次の能力を持つことが確認できます：
