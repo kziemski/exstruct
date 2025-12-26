@@ -1,0 +1,64 @@
+from pathlib import Path
+
+from _pytest.monkeypatch import MonkeyPatch
+
+from exstruct.core.pipeline import (
+    ExtractionArtifacts,
+    ExtractionInputs,
+    build_cells_tables_workbook,
+    build_pre_com_pipeline,
+)
+from exstruct.models import CellRow, PrintArea
+
+
+def test_build_pre_com_pipeline_respects_flags(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("SKIP_COM_TESTS", raising=False)
+    inputs = ExtractionInputs(
+        file_path=tmp_path / "book.xlsx",
+        mode="standard",
+        include_cell_links=False,
+        include_print_areas=False,
+        include_auto_page_breaks=False,
+        include_colors_map=False,
+        include_default_background=False,
+        ignore_colors=None,
+    )
+    steps = build_pre_com_pipeline(inputs)
+    step_names = [step.__name__ for step in steps]
+    assert step_names == ["step_extract_cells"]
+
+
+def test_build_cells_tables_workbook_uses_print_areas(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    def fake_detect_tables(_: Path, __: str) -> list[str]:
+        return ["A1:B2"]
+
+    monkeypatch.setattr(
+        "exstruct.core.pipeline.detect_tables_openpyxl", fake_detect_tables
+    )
+
+    inputs = ExtractionInputs(
+        file_path=tmp_path / "book.xlsx",
+        mode="standard",
+        include_cell_links=False,
+        include_print_areas=True,
+        include_auto_page_breaks=False,
+        include_colors_map=False,
+        include_default_background=False,
+        ignore_colors=None,
+    )
+    artifacts = ExtractionArtifacts(
+        cell_data={"Sheet1": [CellRow(r=1, c={"0": "v"})]},
+        print_area_data={"Sheet1": [PrintArea(r1=0, c1=0, r2=0, c2=0)]},
+    )
+    wb = build_cells_tables_workbook(
+        inputs=inputs,
+        artifacts=artifacts,
+        reason="test",
+    )
+    sheet = wb.sheets["Sheet1"]
+    assert sheet.print_areas
+    assert sheet.table_candidates == ["A1:B2"]

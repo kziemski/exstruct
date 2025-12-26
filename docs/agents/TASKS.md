@@ -10,11 +10,11 @@
 
 ## タスクリスト
 
-- [ ] 抽出ステップの責務分離（cells/tables/shapes/charts/print_areas/colors/auto_page_breaks）
-  - [ ] `core/pipeline.py` を新設し、ステップ定義の型（Protocol / BaseModel）を設計
-  - [ ] cells/tables/shapes/charts/print_areas/colors/auto_page_breaks を個別関数へ移動
-  - [ ] ステップごとの入力/出力モデル（中間構造）を定義
-  - [ ] `core/integrate.py` から抽出処理の実体を分離
+- [x] 抽出ステップの責務分離（cells/tables/shapes/charts/print_areas/colors/auto_page_breaks）
+  - [x] `core/pipeline.py` を新設し、ステップ定義の型（Protocol / BaseModel）を設計
+  - [x] cells/tables/shapes/charts/print_areas/colors/auto_page_breaks を個別関数へ移動
+  - [x] ステップごとの入力/出力モデル（中間構造）を定義
+  - [x] `core/integrate.py` から抽出処理の実体を分離
 
 - [ ] パイプライン定義の集約（mode 切替を 1 箇所に統一）
   - [ ] `ExtractionMode` と include_* フラグの解決ロジックをパイプライン層へ集約

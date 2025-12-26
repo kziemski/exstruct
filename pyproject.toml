@@ -123,6 +123,6 @@ markers = [
 ruff = "ruff check ."
 format = "ruff check . --fix"
 mypy = "mypy src/exstruct --strict"
-pytest = "pytest -vv --cov"
+test = "pytest -vv --cov"
 docs = "mkdocs serve"
 build-docs = "mkdocs build && python scripts/gen_json_schema.py && python scripts/gen_model_docs.py"
