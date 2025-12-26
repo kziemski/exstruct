@@ -196,6 +196,7 @@ ExStruct の全機能について、正式なテスト要件をまとめたド�
 - [PIPE-02] build_cells_tables_workbook は print_areas を条件に反映し table_candidates を保持
 - [PIPE-03] resolve_extraction_inputs は mode デフォルトで include_* を解決する
 - [MOD-01] build_workbook_data は raw コンテナから WorkbookData/SheetData を構築する
+- [MOD-02] collect_sheet_raw_data は抽出済みデータを raw コンテナにまとめる
 
 ## 2.7 Backend
 
