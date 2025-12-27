@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+import logging
 from pathlib import Path
 from typing import Any
 import warnings
 
 from openpyxl import load_workbook
 import xlwings as xw
+
+logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -49,8 +52,8 @@ def openpyxl_workbook(
     finally:
         try:
             wb.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to close openpyxl workbook. (%r)", exc)
 
 
 @contextmanager
@@ -76,12 +79,12 @@ def xlwings_workbook(file_path: Path, *, visible: bool = False) -> Iterator[xw.B
     finally:
         try:
             wb.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to close Excel workbook. (%r)", exc)
         try:
             app.quit()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to quit Excel application. (%r)", exc)
 
 
 def _find_open_workbook(file_path: Path) -> xw.Book | None:
@@ -96,11 +99,16 @@ def _find_open_workbook(file_path: Path) -> xw.Book | None:
     try:
         for app in xw.apps:
             for wb in app.books:
+                resolved_path: Path | None = None
                 try:
-                    if Path(wb.fullname).resolve() == file_path.resolve():
-                        return wb
-                except Exception:
+                    resolved_path = Path(wb.fullname).resolve()
+                except Exception as exc:
+                    logger.debug("Failed to resolve workbook path. (%r)", exc)
+                if resolved_path is None:
                     continue
-    except Exception:
+                if resolved_path == file_path.resolve():
+                    return wb
+    except Exception as exc:
+        logger.debug("Failed to inspect open Excel workbooks. (%r)", exc)
         return None
     return None

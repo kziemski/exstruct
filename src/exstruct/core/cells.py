@@ -1389,9 +1389,16 @@ def detect_tables_xlwings(sheet: xw.Sheet) -> list[str]:
         top_row, left_col, bottom_row, right_col = shrink_to_content(
             sheet, top_row, left_col, bottom_row, right_col, require_inside_border=False
         )
+        rng_vals: object | None = None
         try:
             rng_vals = sheet.range((top_row, left_col), (bottom_row, right_col)).value
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "Failed to read range for table detection (%s). (%r)",
+                sheet.name,
+                exc,
+            )
+        if rng_vals is None:
             continue
         candidates = _collect_table_candidates_from_values(
             _normalize_matrix(rng_vals),

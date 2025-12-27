@@ -32,10 +32,15 @@ class ComBackend:
         """
         areas: PrintAreaData = {}
         for sheet in self.workbook.sheets:
+            raw = ""
             try:
                 raw = sheet.api.PageSetup.PrintArea or ""
-            except Exception:
-                continue
+            except Exception as exc:
+                logger.warning(
+                    "Failed to read print area via COM for sheet '%s'. (%r)",
+                    sheet.name,
+                    exc,
+                )
             if not raw:
                 continue
             for part in str(raw).split(","):
@@ -81,9 +86,12 @@ class ComBackend:
         """
         results: PrintAreaData = {}
         for sheet in self.workbook.sheets:
+            ws_api: Any | None = None
+            original_display: bool | None = None
+            failed = False
             try:
                 ws_api = cast(Any, sheet.api)
-                original_display: bool | None = ws_api.DisplayPageBreaks
+                original_display = ws_api.DisplayPageBreaks
                 ws_api.DisplayPageBreaks = True
                 print_area = ws_api.PageSetup.PrintArea or ws_api.UsedRange.Address
                 parts_raw = _split_csv_respecting_quotes(str(print_area))
@@ -123,14 +131,24 @@ class ComBackend:
                             results.setdefault(sheet.name, []).append(
                                 PrintArea(r1=r1, c1=c1 - 1, r2=r2, c2=c2 - 1)
                             )
-                if original_display is not None:
-                    ws_api.DisplayPageBreaks = original_display
-            except Exception:
-                try:
-                    if original_display is not None:
+            except Exception as exc:
+                logger.warning(
+                    "Failed to extract auto page breaks via COM for sheet '%s'. (%r)",
+                    sheet.name,
+                    exc,
+                )
+                failed = True
+            finally:
+                if ws_api is not None and original_display is not None:
+                    try:
                         ws_api.DisplayPageBreaks = original_display
-                except Exception:
-                    pass
+                    except Exception as exc:
+                        logger.debug(
+                            "Failed to restore DisplayPageBreaks for sheet '%s'. (%r)",
+                            sheet.name,
+                            exc,
+                        )
+            if failed:
                 continue
         return results
 
