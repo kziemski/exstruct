@@ -2,10 +2,10 @@
 
 ## 1. 既存実装の修正（モデル分離の影響対応）
 
-- [ ] `src/exstruct/io/__init__.py` の `_filter_shapes_to_area` が `list[Shape | Arrow | SmartArt]` を受け取れるように型と処理を調整する
-- [ ] `src/exstruct/core/shapes.py` のコネクタ判定を `Arrow` 前提に変更する（`begin_arrow_style` / `end_arrow_style` などは `Arrow` のみ参照）
-- [ ] `src/exstruct/core/shapes.py` の接続 ID 参照を `Arrow` に限定し、`Shape` からの誤参照を除去する
-- [ ] `PrintAreaView` 側の `shapes` フィルタで `SmartArt` を落とさないことを確認する
+- [x] `src/exstruct/io/__init__.py` の `_filter_shapes_to_area` が `list[Shape | Arrow | SmartArt]` を受け取れるように型と処理を調整する
+- [x] `src/exstruct/core/shapes.py` のコネクタ判定を `Arrow` 前提に変更する（`begin_arrow_style` / `end_arrow_style` などは `Arrow` のみ参照）
+- [x] `src/exstruct/core/shapes.py` の接続 ID 参照を `Arrow` に限定し、`Shape` からの誤参照を除去する
+- [x] `PrintAreaView` 側の `shapes` フィルタで `SmartArt` を落とさないことを確認する
 
 ## 2. SmartArt 取得機能の実装方針
 
@@ -19,7 +19,7 @@
 
 - [ ] `src/exstruct/core/shapes.py` に SmartArt 抽出用の関数を追加する（1 関数=1 責務を遵守）
 - [ ] `src/exstruct/core/shapes.py` のメイン抽出処理で `Shape` / `Arrow` / `SmartArt` に振り分ける
-- [ ] `src/exstruct/io/__init__.py` で `Shape | Arrow | SmartArt` のシリアライズ挙動が崩れないことを確認する
+- [x] `src/exstruct/io/__init__.py` で `Shape | Arrow | SmartArt` のシリアライズ挙動が崩れないことを確認する
 
 ## 4. 動作確認
 
