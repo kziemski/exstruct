@@ -49,15 +49,17 @@
 ## 追加カバレッジ強化: cells.py / workbook.py
 
 ### cells.py（低カバレッジ重点）
-- [x] _normalize_color_key / _normalize_rgb の正規化パターン（#/ARGB/auto/theme/indexed）
-- [x] _normalize_ignore_colors の空/重複/不正キーの除外
-- [x] _resolve_cell_background / _resolve_fill_color_key の既定背景/None/パターン種別分岐
-- [x] _color_to_key の theme/indexed/auto 分岐（openpyxl Color 風ダミー）
-- [x] _header_like_row / _table_signal_score / _count_nonempty_cells の境界ケース
-- [x] _collect_table_candidates_from_values の検出閾値と空入力（min_nonempty_cells）
+
+- [x] \_normalize_color_key / \_normalize_rgb の正規化パターン（#/ARGB/auto/theme/indexed）
+- [x] \_normalize_ignore_colors の空/重複/不正キーの除外
+- [x] \_resolve_cell_background / \_resolve_fill_color_key の既定背景/None/パターン種別分岐
+- [x] \_color_to_key の theme/indexed/auto 分岐（openpyxl Color 風ダミー）
+- [x] \_header_like_row / \_table_signal_score / \_count_nonempty_cells の境界ケース
+- [x] \_collect_table_candidates_from_values の検出閾値と空入力（min_nonempty_cells）
 
 ### workbook.py（低カバレッジ重点）
-- [ ] openpyxl_workbook の close 失敗時の例外抑制（close が例外でも継続）
-- [ ] xlwings_workbook の既存ブック検出経路（_find_open_workbook が返す場合）
-- [ ] _find_open_workbook の fullname 例外・resolve 例外のハンドリング
-- [ ] _find_open_workbook の全体例外時に None を返す経路
+
+- [x] openpyxl_workbook の close 失敗時の例外抑制（close が例外でも継続）
+- [x] xlwings_workbook の既存ブック検出経路（\_find_open_workbook が返す場合）
+- [x] \_find_open_workbook の fullname 例外・resolve 例外のハンドリング
+- [x] \_find_open_workbook の全体例外時に None を返す経路
