@@ -47,6 +47,27 @@ class _DummyApi:
 
 
 @dataclass(frozen=True)
+class _DummyApiSmartArt:
+    shape_type: int
+
+    @property
+    def Type(self) -> int:
+        return self.shape_type
+
+    @property
+    def AutoShapeType(self) -> int:
+        raise RuntimeError("AutoShapeType unavailable")
+
+    @property
+    def HasSmartArt(self) -> bool:
+        return True
+
+    @property
+    def SmartArt(self) -> object:
+        return object()
+
+
+@dataclass(frozen=True)
 class _DummyShape:
     name: str
     text: str
@@ -54,7 +75,7 @@ class _DummyShape:
     top: float
     width: float
     height: float
-    api: _DummyApi
+    api: object
 
 
 @dataclass(frozen=True)
@@ -153,3 +174,19 @@ def test_get_shapes_with_position_verbose_includes_all_and_sizes() -> None:
 
     assert len(shapes) == 3
     assert all(s.w is not None and s.h is not None for s in shapes)
+
+
+def test_get_shapes_with_position_light_skips_smartart() -> None:
+    smartart_shape = _DummyShape(
+        name="SmartArt1",
+        text="sa",
+        left=10.0,
+        top=20.0,
+        width=100.0,
+        height=50.0,
+        api=_DummyApiSmartArt(shape_type=24),
+    )
+    book = _DummyBook(sheets=[_DummySheet(name="Sheet1", shapes=[smartart_shape])])
+
+    result = get_shapes_with_position(book, mode="light")
+    assert result["Sheet1"] == []

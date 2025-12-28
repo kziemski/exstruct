@@ -4,7 +4,7 @@
 
 ![ExStruct Image](/docs/assets/icon.webp)
 
-ExStruct reads Excel workbooks and outputs structured data (cells, table candidates, shapes, charts, smartart,print areas/views, auto page-break areas, hyperlinks) as JSON by default, with optional YAML/TOON formats. It targets both COM/Excel environments (rich extraction) and non-COM environments (cells + table candidates + print areas), with tunable detection heuristics and multiple output modes to fit LLM/RAG pipelines.
+ExStruct reads Excel workbooks and outputs structured data (cells, table candidates, shapes, charts, smartart, print areas/views, auto page-break areas, hyperlinks) as JSON by default, with optional YAML/TOON formats. It targets both COM/Excel environments (rich extraction) and non-COM environments (cells + table candidates + print areas), with tunable detection heuristics and multiple output modes to fit LLM/RAG pipelines.
 
 [日本版 README](README.ja.md)
 

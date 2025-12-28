@@ -178,9 +178,8 @@ def _collect_smartart_node_info(
         return nodes_info
 
     for node in all_nodes:
-        try:
-            level = int(node.Level)
-        except Exception:
+        level = _get_smartart_node_level(node)
+        if level is None:
             continue
         text = ""
         try:
@@ -192,6 +191,14 @@ def _collect_smartart_node_info(
             text = ""
         nodes_info.append((level, text))
     return nodes_info
+
+
+def _get_smartart_node_level(node: _SmartArtNodeLike) -> int | None:
+    """Return SmartArt node level or None when unavailable."""
+    try:
+        return int(node.Level)
+    except Exception:
+        return None
 
 
 def _build_smartart_tree(nodes_info: list[tuple[int, str]]) -> list[SmartArtNode]:
@@ -255,6 +262,9 @@ def get_shapes_with_position(  # noqa: C901
                     text = shp.text.strip() if shp.text else ""
                 except Exception:
                     text = ""
+
+                if mode == "light":
+                    continue
 
                 has_smartart = _shape_has_smartart(shp)
                 if not has_smartart and not _should_include_shape(
