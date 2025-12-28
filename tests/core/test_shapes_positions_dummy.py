@@ -45,7 +45,7 @@ class _DummyApi:
     def Rotation(self) -> float:
         """
         Get the shape's rotation angle.
-        
+
         Returns:
             rotation (float): Rotation angle in degrees.
         """
@@ -60,7 +60,7 @@ class _DummyApiSmartArt:
     def Type(self) -> int:
         """
         Get the shape's type identifier.
-        
+
         Returns:
             shape_type (int): Integer identifier for the shape type.
         """
@@ -70,7 +70,7 @@ class _DummyApiSmartArt:
     def AutoShapeType(self) -> int:
         """
         Indicates that an AutoShape type is unavailable for this API.
-        
+
         Raises:
             RuntimeError: Always raised with the message "AutoShapeType unavailable".
         """
@@ -80,7 +80,7 @@ class _DummyApiSmartArt:
     def HasSmartArt(self) -> bool:
         """
         Indicates whether the API represents a SmartArt shape.
-        
+
         Returns:
             bool: `True` if the shape is a SmartArt shape, `False` otherwise.
         """
@@ -90,7 +90,7 @@ class _DummyApiSmartArt:
     def SmartArt(self) -> object:
         """
         Provide a generic placeholder object representing SmartArt details.
-        
+
         Returns:
             smartart (object): A generic placeholder object for SmartArt; its structure is not specified and should not be relied upon.
         """

@@ -48,12 +48,12 @@ class _DummyApiRaises:
     def HasSmartArt(self) -> bool:  # noqa: N802
         """
         Indicates whether the shape contains SmartArt.
-        
+
         This stub implementation is not available and raises an error when accessed.
-        
+
         Returns:
             `True` if the shape contains SmartArt, `False` otherwise.
-        
+
         Raises:
             RuntimeError: Always raised with the message "HasSmartArt unavailable".
         """
@@ -68,7 +68,7 @@ class _DummyShape:
     def api(self) -> object:
         """
         Access the underlying API object for this shape.
-        
+
         Returns:
             The wrapped API object exposing the shape's underlying properties and methods.
         """
@@ -81,10 +81,10 @@ class _DummyShapeRaisesApi:
     def api(self) -> object:
         """
         Return the underlying API object for this wrapper.
-        
+
         Returns:
             object: The underlying API object.
-        
+
         Raises:
             RuntimeError: If the API is unavailable.
         """

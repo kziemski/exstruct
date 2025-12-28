@@ -41,9 +41,9 @@ def _write_schema(name: str, model: type[BaseModel], output_dir: Path) -> Path:
 def main() -> int:
     """
     Generate JSON Schema files for ExStruct's public Pydantic models into the repository 'schemas' directory.
-    
+
     Writes one JSON Schema file per public model into the 'schemas' folder at the project root.
-    
+
     Returns:
         exit_code (int): 0 on success.
     """

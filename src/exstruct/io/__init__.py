@@ -32,12 +32,12 @@ logger = logging.getLogger(__name__)
 def dict_without_empty_values(obj: object) -> JsonStructure:
     """
     Remove None, empty string, empty list, and empty dict values from a nested structure or supported model object.
-    
+
     Recursively processes dicts, lists, and supported model types (WorkbookData, CellRow, Chart, PrintArea, PrintAreaView, Shape, Arrow, SmartArt). Model instances are converted to dictionaries with None fields excluded before recursive cleaning. Values considered empty and removed are: `None`, `""` (empty string), `[]` (empty list), and `{}` (empty dict).
-    
+
     Parameters:
         obj (object): A value to clean; may be a dict, list, scalar, or one of the supported model instances.
-    
+
     Returns:
         JsonStructure: The input structure with empty values removed, preserving other values and nesting.
     """
@@ -185,14 +185,14 @@ def _area_to_px_rect(
 def _rects_overlap(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> bool:
     """
     Determine whether two axis-aligned rectangles intersect (overlap in area).
-    
+
     Parameters:
         a (tuple[int, int, int, int]): Rectangle A as (left, top, right, bottom).
         b (tuple[int, int, int, int]): Rectangle B as (left, top, right, bottom).
-    
+
     Notes:
         Rectangles are treated as half-open in this context: if they only touch at edges or corners, they do not count as overlapping.
-    
+
     Returns:
         bool: `True` if the rectangles have a non-zero-area intersection, `False` otherwise.
     """
@@ -204,13 +204,13 @@ def _filter_shapes_to_area(
 ) -> list[Shape | Arrow | SmartArt]:
     """
     Filter drawable shapes to those that intersect the given print area.
-    
+
     Shapes and the print area are compared in approximate pixel coordinates. Shapes that have both width and height are included when their bounding rectangle overlaps the area. Shapes with unknown size (width or height is None) are treated as a point at their left/top coordinates and included only if that point lies inside the area.
-    
+
     Parameters:
         shapes (list[Shape | Arrow | SmartArt]): Drawable objects with `l`, `t`, `w`, `h` coordinates.
         area (PrintArea): Cell-based print area that will be converted to an approximate pixel rectangle.
-    
+
     Returns:
         list[Shape | Arrow | SmartArt]: Subset of `shapes` whose geometry intersects the print area.
     """
