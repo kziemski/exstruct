@@ -44,4 +44,4 @@
 ## フェーズ 5: 統合テスト（低優先）
 
 - [x] 既存の openpyxl 作成テストの延長（簡易 workbook の抽出/エクスポート）
-- [ ] CLI/Engine の最小 E2E（JSON 生成の基本構造のみ検証）
+- [x] CLI/Engine の最小 E2E（JSON 生成の基本構造のみ検証）
