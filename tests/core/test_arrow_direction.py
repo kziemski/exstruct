@@ -1,9 +1,25 @@
+from collections.abc import Callable
+from typing import TypeVar, cast
+
 import pytest
+from typing_extensions import ParamSpec
 
 from exstruct.core.shapes import angle_to_compass, compute_line_angle_deg
 
+P = ParamSpec("P")
+R = TypeVar("R")
 
-@pytest.mark.parametrize(
+
+def _parametrize(
+    *args: object, **kwargs: object
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    return cast(
+        Callable[[Callable[P, R]], Callable[P, R]],
+        pytest.mark.parametrize(*args, **kwargs),
+    )
+
+
+@_parametrize(
     "angle,expected",
     [
         (0, "E"),
@@ -39,7 +55,7 @@ def test_angle_to_compass_8方位(angle: float, expected: str) -> None:
     assert angle_to_compass(angle) == expected
 
 
-@pytest.mark.parametrize(
+@_parametrize(
     "w,h,expected",
     [
         (10.0, 0.0, 0.0),
