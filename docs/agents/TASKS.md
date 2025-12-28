@@ -18,7 +18,7 @@
 - [x] core/shapes.py: compute_line_angle_deg, angle_to_compass, has_arrow の境界値テスト
 - [x] core/cells.py: \_coerce_numeric_preserve_format の入力パターンテスト
 - [x] core/backends/com_backend.py: \_split_csv_respecting_quotes の引用符対応テスト
-- [ ] core/backends/com_backend.py: \_normalize_area_for_sheet の補正ロジックテスト
+- [x] core/backends/com_backend.py: \_normalize_area_for_sheet の補正ロジックテスト
 
 ## フェーズ 2: パース/分岐ロジック（高優先）
 
