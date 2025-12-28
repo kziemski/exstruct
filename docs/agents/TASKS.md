@@ -31,7 +31,7 @@
 ## フェーズ 3: バックエンド/検出ロジック（中優先）
 
 - [x] core/cells.py: detect_tables の .xlsx / .xls 分岐（openpyxl/COM の呼び分け）
-- [ ] core/backends/openpyxl_backend.py: extract_print_areas 複数範囲の処理
+- [x] core/backends/openpyxl_backend.py: extract_print_areas 複数範囲の処理
 - [ ] core/backends/openpyxl_backend.py: extract_colors_map の例外時 None 返却
 - [ ] core/backends/com_backend.py: extract_print_areas の例外処理分岐
 
