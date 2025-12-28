@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 import math
-from typing import Literal, SupportsInt, cast
+from typing import Literal, Protocol, SupportsInt, cast, runtime_checkable
 
 import xlwings as xw
 from xlwings import Book
 
-from ..models import Arrow, Shape, SmartArt
+from ..models import Arrow, Shape, SmartArt, SmartArtNode
 from ..models.maps import MSO_AUTO_SHAPE_TYPE_MAP, MSO_SHAPE_TYPE_MAP
 
 
@@ -110,6 +110,113 @@ def _should_include_shape(
     return True
 
 
+@runtime_checkable
+class _TextRangeLike(Protocol):
+    """Text range interface for SmartArt nodes."""
+
+    Text: str | None
+
+
+@runtime_checkable
+class _TextFrameLike(Protocol):
+    """Text frame interface for SmartArt nodes."""
+
+    HasText: bool
+    TextRange: _TextRangeLike
+
+
+@runtime_checkable
+class _SmartArtNodeLike(Protocol):
+    """SmartArt node interface."""
+
+    Level: int
+    TextFrame2: _TextFrameLike
+
+
+@runtime_checkable
+class _SmartArtLike(Protocol):
+    """SmartArt interface."""
+
+    Layout: object
+    AllNodes: Iterable[_SmartArtNodeLike]
+
+
+@runtime_checkable
+class _ShapeWithSmartArtLike(Protocol):
+    """Shape interface exposing SmartArt."""
+
+    HasSmartArt: bool
+    SmartArt: _SmartArtLike
+
+
+def _shape_has_smartart(shp: object) -> bool:
+    """Return True if the shape exposes SmartArt content."""
+    return isinstance(shp, _ShapeWithSmartArtLike) and shp.HasSmartArt
+
+
+def _get_smartart_layout_name(smartart: _SmartArtLike | None) -> str:
+    """Return SmartArt layout name or a fallback label."""
+    if smartart is None:
+        return "Unknown"
+    try:
+        layout = getattr(smartart, "Layout", None)
+        name = getattr(layout, "Name", None)
+        return str(name) if name is not None else "Unknown"
+    except Exception:
+        return "Unknown"
+
+
+def _collect_smartart_node_info(
+    smartart: _SmartArtLike | None,
+) -> list[tuple[int, str]]:
+    """Collect (level, text) pairs from SmartArt nodes."""
+    nodes_info: list[tuple[int, str]] = []
+    if smartart is None:
+        return nodes_info
+    try:
+        all_nodes = smartart.AllNodes
+    except Exception:
+        return nodes_info
+
+    for node in all_nodes:
+        try:
+            level = int(node.Level)
+        except Exception:
+            continue
+        text = ""
+        try:
+            text_frame = node.TextFrame2
+            if text_frame.HasText:
+                text_value = text_frame.TextRange.Text
+                text = str(text_value) if text_value is not None else ""
+        except Exception:
+            text = ""
+        nodes_info.append((level, text))
+    return nodes_info
+
+
+def _build_smartart_tree(nodes_info: list[tuple[int, str]]) -> list[SmartArtNode]:
+    """Build nested SmartArtNode roots from flat (level, text) tuples."""
+    roots: list[SmartArtNode] = []
+    stack: list[SmartArtNode] = []
+    for level, text in nodes_info:
+        node = SmartArtNode(text=text, level=level, children=[])
+        while stack and stack[-1].level >= level:
+            stack.pop()
+        if stack:
+            stack[-1].children.append(node)
+        else:
+            roots.append(node)
+        stack.append(node)
+    return roots
+
+
+def _extract_smartart_nodes(smartart: _SmartArtLike | None) -> list[SmartArtNode]:
+    """Extract SmartArt nodes as nested roots."""
+    nodes_info = _collect_smartart_node_info(smartart)
+    return _build_smartart_tree(nodes_info)
+
+
 def get_shapes_with_position(  # noqa: C901
     workbook: Book, mode: str = "standard"
 ) -> dict[str, list[Shape | Arrow | SmartArt]]:
@@ -150,7 +257,8 @@ def get_shapes_with_position(  # noqa: C901
                 except Exception:
                     text = ""
 
-                if not _should_include_shape(
+                has_smartart = _shape_has_smartart(shp)
+                if not has_smartart and not _should_include_shape(
                     text=text,
                     shape_type_num=type_num,
                     shape_type_str=shape_type_str,
@@ -195,8 +303,30 @@ def get_shapes_with_position(  # noqa: C901
 
                 excel_name = shape_name if isinstance(shape_name, str) else None
 
-                if is_relationship_geom:
-                    shape_obj: Shape | Arrow | SmartArt = Arrow(
+                shape_obj: Shape | Arrow | SmartArt
+                if has_smartart:
+                    smartart_obj = None
+                    try:
+                        smartart_obj = shp.SmartArt
+                    except Exception:
+                        smartart_obj = None
+                    shape_obj = SmartArt(
+                        id=shape_id,
+                        text=text,
+                        l=int(shp.left),
+                        t=int(shp.top),
+                        w=int(shp.width)
+                        if mode == "verbose" or shape_type_str == "Group"
+                        else None,
+                        h=int(shp.height)
+                        if mode == "verbose" or shape_type_str == "Group"
+                        else None,
+                        type=type_label,
+                        layout_name=_get_smartart_layout_name(smartart_obj),
+                        roots=_extract_smartart_nodes(smartart_obj),
+                    )
+                elif is_relationship_geom:
+                    shape_obj = Arrow(
                         id=shape_id,
                         text=text,
                         l=int(shp.left),
