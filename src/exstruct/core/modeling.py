@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..models import CellRow, Chart, PrintArea, Shape, SheetData, WorkbookData
+from ..models import (
+    Arrow,
+    CellRow,
+    Chart,
+    PrintArea,
+    Shape,
+    SheetData,
+    SmartArt,
+    WorkbookData,
+)
 
 
 @dataclass(frozen=True)
@@ -20,7 +29,7 @@ class SheetRawData:
     """
 
     rows: list[CellRow]
-    shapes: list[Shape]
+    shapes: list[Shape | Arrow | SmartArt]
     charts: list[Chart]
     table_candidates: list[str]
     print_areas: list[PrintArea]

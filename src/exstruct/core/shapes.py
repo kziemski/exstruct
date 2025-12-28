@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 import math
-from typing import SupportsInt, cast
+from typing import Literal, SupportsInt, cast
 
 import xlwings as xw
 from xlwings import Book
 
-from ..models import Shape
+from ..models import Arrow, Shape, SmartArt
 from ..models.maps import MSO_AUTO_SHAPE_TYPE_MAP, MSO_SHAPE_TYPE_MAP
 
 
@@ -16,11 +16,13 @@ def compute_line_angle_deg(w: float, h: float) -> float:
     return math.degrees(math.atan2(h, w)) % 360.0
 
 
-def angle_to_compass(angle: float) -> str:
+def angle_to_compass(
+    angle: float,
+) -> Literal["E", "SE", "S", "SW", "W", "NW", "N", "NE"]:
     """Convert angle to 8-point compass direction (0deg=E, 45deg=NE, 90deg=N, etc)."""
     dirs = ["E", "NE", "N", "NW", "W", "SW", "S", "SE"]
     idx = int(((angle + 22.5) % 360) // 45)
-    return dirs[idx]
+    return cast(Literal["E", "SE", "S", "SW", "W", "NW", "N", "NE"], dirs[idx])
 
 
 def coord_to_cell_by_edges(
@@ -110,14 +112,14 @@ def _should_include_shape(
 
 def get_shapes_with_position(  # noqa: C901
     workbook: Book, mode: str = "standard"
-) -> dict[str, list[Shape]]:
-    """Scan shapes in a workbook and return per-sheet Shape lists with position info."""
-    shape_data: dict[str, list[Shape]] = {}
+) -> dict[str, list[Shape | Arrow | SmartArt]]:
+    """Scan shapes in a workbook and return per-sheet shape lists with position info."""
+    shape_data: dict[str, list[Shape | Arrow | SmartArt]] = {}
     for sheet in workbook.sheets:
-        shapes: list[Shape] = []
+        shapes: list[Shape | Arrow | SmartArt] = []
         excel_names: list[tuple[str, int]] = []
         node_index = 0
-        pending_connections: list[tuple[Shape, str | None, str | None]] = []
+        pending_connections: list[tuple[Arrow, str | None, str | None]] = []
         for root in sheet.shapes:
             for shp in iter_shapes_recursive(root):
                 try:
@@ -179,7 +181,8 @@ def get_shapes_with_position(  # noqa: C901
                 ):
                     is_relationship_geom = True
                 if shape_type_str and (
-                    "Connector" in shape_type_str or shape_type_str in ("Line", "ConnectLine")
+                    "Connector" in shape_type_str
+                    or shape_type_str in ("Line", "ConnectLine")
                 ):
                     is_relationship_geom = True
                 if shape_name and ("Connector" in shape_name or "Line" in shape_name):
@@ -192,19 +195,34 @@ def get_shapes_with_position(  # noqa: C901
 
                 excel_name = shape_name if isinstance(shape_name, str) else None
 
-                shape_obj = Shape(
-                    id=shape_id,
-                    text=text,
-                    l=int(shp.left),
-                    t=int(shp.top),
-                    w=int(shp.width)
-                    if mode == "verbose" or shape_type_str == "Group"
-                    else None,
-                    h=int(shp.height)
-                    if mode == "verbose" or shape_type_str == "Group"
-                    else None,
-                    type=type_label,
-                )
+                if is_relationship_geom:
+                    shape_obj: Shape | Arrow | SmartArt = Arrow(
+                        id=shape_id,
+                        text=text,
+                        l=int(shp.left),
+                        t=int(shp.top),
+                        w=int(shp.width)
+                        if mode == "verbose" or shape_type_str == "Group"
+                        else None,
+                        h=int(shp.height)
+                        if mode == "verbose" or shape_type_str == "Group"
+                        else None,
+                        type=type_label,
+                    )
+                else:
+                    shape_obj = Shape(
+                        id=shape_id,
+                        text=text,
+                        l=int(shp.left),
+                        t=int(shp.top),
+                        w=int(shp.width)
+                        if mode == "verbose" or shape_type_str == "Group"
+                        else None,
+                        h=int(shp.height)
+                        if mode == "verbose" or shape_type_str == "Group"
+                        else None,
+                        type=type_label,
+                    )
                 if excel_name:
                     if shape_id is not None:
                         excel_names.append((excel_name, shape_id))
@@ -215,7 +233,8 @@ def get_shapes_with_position(  # noqa: C901
                         angle = compute_line_angle_deg(
                             float(shp.width), float(shp.height)
                         )
-                        shape_obj.direction = angle_to_compass(angle)  # type: ignore
+                        if isinstance(shape_obj, Arrow):
+                            shape_obj.direction = angle_to_compass(angle)
                         try:
                             rot = float(shp.api.Rotation)
                             if abs(rot) > 1e-6:
@@ -225,8 +244,9 @@ def get_shapes_with_position(  # noqa: C901
                         try:
                             begin_style = int(shp.api.Line.BeginArrowheadStyle)
                             end_style = int(shp.api.Line.EndArrowheadStyle)
-                            shape_obj.begin_arrow_style = begin_style
-                            shape_obj.end_arrow_style = end_style
+                            if isinstance(shape_obj, Arrow):
+                                shape_obj.begin_arrow_style = begin_style
+                                shape_obj.end_arrow_style = end_style
                         except Exception:
                             pass
                         # Connector begin/end connected shapes (if this shape is a connector).
@@ -262,7 +282,8 @@ def get_shapes_with_position(  # noqa: C901
                             pass
                 except Exception:
                     pass
-                pending_connections.append((shape_obj, begin_name, end_name))
+                if isinstance(shape_obj, Arrow):
+                    pending_connections.append((shape_obj, begin_name, end_name))
                 shapes.append(shape_obj)
         if pending_connections:
             name_to_id = {name: sid for name, sid in excel_names}

@@ -8,8 +8,8 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class Shape(BaseModel):
-    """Shape metadata (position, size, text, and styling)."""
+class BaseShape(BaseModel):
+    """Common shape metadata (position, size, text, and styling)."""
 
     id: int | None = Field(
         default=None,
@@ -24,6 +24,18 @@ class Shape(BaseModel):
     rotation: float | None = Field(
         default=None, description="Rotation angle in degrees."
     )
+
+
+class Shape(BaseShape):
+    """Normal shape metadata."""
+
+    kind: Literal["shape"] = Field(default="shape", description="Shape kind.")
+
+
+class Arrow(BaseShape):
+    """Connector shape metadata."""
+
+    kind: Literal["arrow"] = Field(default="arrow", description="Shape kind.")
     begin_arrow_style: int | None = Field(
         default=None, description="Arrow style enum for the start of a connector."
     )
@@ -44,6 +56,26 @@ class Shape(BaseModel):
     )
     direction: Literal["E", "SE", "S", "SW", "W", "NW", "N", "NE"] | None = Field(
         default=None, description="Connector direction (compass heading)."
+    )
+
+
+class SmartArtNode(BaseModel):
+    """Node of SmartArt hierarchy."""
+
+    text: str = Field(description="Visible text for the node.")
+    level: int = Field(description="Node depth level.")
+    children: list[SmartArtNode] = Field(
+        default_factory=list, description="Child nodes."
+    )
+
+
+class SmartArt(BaseShape):
+    """SmartArt shape metadata with nested nodes."""
+
+    kind: Literal["smartart"] = Field(default="smartart", description="Shape kind.")
+    layout_name: str = Field(description="SmartArt layout name.")
+    roots: list[SmartArtNode] = Field(
+        default_factory=list, description="Root nodes of SmartArt tree."
     )
 
 
@@ -109,7 +141,7 @@ class SheetData(BaseModel):
     rows: list[CellRow] = Field(
         default_factory=list, description="Extracted rows with cell values and links."
     )
-    shapes: list[Shape] = Field(
+    shapes: list[Shape | Arrow | SmartArt] = Field(
         default_factory=list, description="Shapes detected on the sheet."
     )
     charts: list[Chart] = Field(
@@ -267,7 +299,7 @@ class PrintAreaView(BaseModel):
     book_name: str = Field(description="Workbook name owning the area.")
     sheet_name: str = Field(description="Sheet name owning the area.")
     area: PrintArea = Field(description="Print area bounds.")
-    shapes: list[Shape] = Field(
+    shapes: list[Shape | Arrow | SmartArt] = Field(
         default_factory=list, description="Shapes overlapping the area."
     )
     charts: list[Chart] = Field(

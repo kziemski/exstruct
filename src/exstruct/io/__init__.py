@@ -7,7 +7,16 @@ from typing import Literal, cast
 
 from ..core.ranges import RangeBounds, parse_range_zero_based
 from ..errors import OutputError, SerializationError
-from ..models import CellRow, Chart, PrintArea, PrintAreaView, Shape, WorkbookData
+from ..models import (
+    Arrow,
+    CellRow,
+    Chart,
+    PrintArea,
+    PrintAreaView,
+    Shape,
+    SmartArt,
+    WorkbookData,
+)
 from ..models.types import JsonStructure
 from .serialize import (
     _FORMAT_HINTS,
@@ -34,7 +43,14 @@ def dict_without_empty_values(obj: object) -> JsonStructure:
         ]
     if isinstance(
         obj,
-        WorkbookData | CellRow | Chart | PrintArea | PrintAreaView | Shape,
+        WorkbookData
+        | CellRow
+        | Chart
+        | PrintArea
+        | PrintAreaView
+        | Shape
+        | Arrow
+        | SmartArt,
     ):
         return dict_without_empty_values(obj.model_dump(exclude_none=True))
     return cast(JsonStructure, obj)
@@ -161,9 +177,11 @@ def _rects_overlap(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -
     return not (a[2] <= b[0] or a[0] >= b[2] or a[3] <= b[1] or a[1] >= b[3])
 
 
-def _filter_shapes_to_area(shapes: list[Shape], area: PrintArea) -> list[Shape]:
+def _filter_shapes_to_area(
+    shapes: list[Shape | Arrow | SmartArt], area: PrintArea
+) -> list[Shape | Arrow | SmartArt]:
     area_rect = _area_to_px_rect(area)
-    filtered: list[Shape] = []
+    filtered: list[Shape | Arrow | SmartArt] = []
     for shp in shapes:
         if shp.w is None or shp.h is None:
             # Fallback: treat shape as a point if size is unknown (standard mode).
