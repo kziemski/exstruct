@@ -10,7 +10,7 @@ from typing import Literal
 import xlwings as xw
 
 from ..errors import FallbackReason
-from ..models import CellRow, Chart, PrintArea, Shape, WorkbookData
+from ..models import Arrow, CellRow, Chart, PrintArea, Shape, SmartArt, WorkbookData
 from .backends.com_backend import ComBackend
 from .backends.openpyxl_backend import OpenpyxlBackend
 from .cells import WorkbookColorsMap, detect_tables
@@ -23,7 +23,7 @@ from .workbook import xlwings_workbook
 ExtractionMode = Literal["light", "standard", "verbose"]
 CellData = dict[str, list[CellRow]]
 PrintAreaData = dict[str, list[PrintArea]]
-ShapeData = dict[str, list[Shape]]
+ShapeData = dict[str, list[Shape | Arrow | SmartArt]]
 ChartData = dict[str, list[Chart]]
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,31 @@
 {
+  "$defs": {
+    "SmartArtNode": {
+      "description": "Node of SmartArt hierarchy.",
+      "properties": {
+        "kids": {
+          "description": "Child nodes.",
+          "items": {
+            "$ref": "#/$defs/SmartArtNode"
+          },
+          "title": "Kids",
+          "type": "array"
+        },
+        "text": {
+          "description": "Visible text for the node.",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "SmartArtNode",
+      "type": "object"
+    }
+  },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "Normal shape metadata.",
+  "description": "SmartArt shape metadata with nested nodes.",
   "properties": {
     "h": {
       "anyOf": [
@@ -29,8 +54,8 @@
       "title": "Id"
     },
     "kind": {
-      "const": "shape",
-      "default": "shape",
+      "const": "smartart",
+      "default": "smartart",
       "description": "Shape kind.",
       "title": "Kind",
       "type": "string"
@@ -39,6 +64,19 @@
       "description": "Left offset (Excel units).",
       "title": "L",
       "type": "integer"
+    },
+    "layout": {
+      "description": "SmartArt layout name.",
+      "title": "Layout",
+      "type": "string"
+    },
+    "nodes": {
+      "description": "Root nodes of SmartArt tree.",
+      "items": {
+        "$ref": "#/$defs/SmartArtNode"
+      },
+      "title": "Nodes",
+      "type": "array"
     },
     "rotation": {
       "anyOf": [
@@ -63,19 +101,6 @@
       "title": "Text",
       "type": "string"
     },
-    "type": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Excel shape type name.",
-      "title": "Type"
-    },
     "w": {
       "anyOf": [
         {
@@ -93,8 +118,9 @@
   "required": [
     "text",
     "l",
-    "t"
+    "t",
+    "layout"
   ],
-  "title": "Shape",
+  "title": "SmartArt",
   "type": "object"
 }

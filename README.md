@@ -1,17 +1,17 @@
 # ExStruct — Excel Structured Extraction Engine
 
-[![PyPI version](https://badge.fury.io/py/exstruct.svg)](https://pypi.org/project/exstruct/) [![PyPI Downloads](https://static.pepy.tech/personalized-badge/exstruct?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/exstruct) ![Licence: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue?style=flat-square) [![pytest](https://github.com/harumiWeb/exstruct/actions/workflows/pytest.yml/badge.svg)](https://github.com/harumiWeb/exstruct/actions/workflows/pytest.yml) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/e081cb4f634e4175b259eb7c34f54f60)](https://app.codacy.com/gh/harumiWeb/exstruct/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![PyPI version](https://badge.fury.io/py/exstruct.svg)](https://pypi.org/project/exstruct/) [![PyPI Downloads](https://static.pepy.tech/personalized-badge/exstruct?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/exstruct) ![Licence: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue?style=flat-square) [![pytest](https://github.com/harumiWeb/exstruct/actions/workflows/pytest.yml/badge.svg)](https://github.com/harumiWeb/exstruct/actions/workflows/pytest.yml) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/e081cb4f634e4175b259eb7c34f54f60)](https://app.codacy.com/gh/harumiWeb/exstruct/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) [![codecov](https://codecov.io/gh/harumiWeb/exstruct/graph/badge.svg?token=2XI1O8TTA9)](https://codecov.io/gh/harumiWeb/exstruct)
 
 ![ExStruct Image](/docs/assets/icon.webp)
 
-ExStruct reads Excel workbooks and outputs structured data (cells, table candidates, shapes, charts, print areas/views, auto page-break areas, hyperlinks) as JSON by default, with optional YAML/TOON formats. It targets both COM/Excel environments (rich extraction) and non-COM environments (cells + table candidates + print areas), with tunable detection heuristics and multiple output modes to fit LLM/RAG pipelines.
+ExStruct reads Excel workbooks and outputs structured data (cells, table candidates, shapes, charts, smartart, print areas/views, auto page-break areas, hyperlinks) as JSON by default, with optional YAML/TOON formats. It targets both COM/Excel environments (rich extraction) and non-COM environments (cells + table candidates + print areas), with tunable detection heuristics and multiple output modes to fit LLM/RAG pipelines.
 
 [日本版 README](README.ja.md)
 
 ## Features
 
-- **Excel → Structured JSON**: cells, shapes, charts, table candidates, print areas/views, and auto page-break areas per sheet.
-- **Output modes**: `light` (cells + table candidates + print areas; no COM, shapes/charts empty), `standard` (texted shapes + arrows, charts, print areas), `verbose` (all shapes with width/height, charts with size, print areas). Verbose also emits cell hyperlinks and `colors_map`. Size output is flag-controlled.
+- **Excel → Structured JSON**: cells, shapes, charts, smartart, table candidates, print areas/views, and auto page-break areas per sheet.
+- **Output modes**: `light` (cells + table candidates + print areas; no COM, shapes/charts empty), `standard` (texted shapes + arrows, charts, smartart, print areas), `verbose` (all shapes with width/height, charts with size, print areas). Verbose also emits cell hyperlinks and `colors_map`. Size output is flag-controlled.
 - **Auto page-break export (COM only)**: capture Excel-computed auto page breaks and write per-area JSON/YAML/TOON when requested (CLI option appears only when COM is available).
 - **Formats**: JSON (compact by default, `--pretty` available), YAML, TOON (optional dependencies).
 - **Table detection tuning**: adjust heuristics at runtime via API.
@@ -394,6 +394,12 @@ If you plan to extend ExStruct internals,
 please read the contributor architecture guide.
 
 → [docs/contributors/architecture.md](docs/contributors/architecture.md)
+
+## Note on coverage
+
+The cell-structure inference logic (cells.py) relies on heuristic rules
+and Excel-specific behaviors. Full coverage is intentionally not pursued,
+as exhaustive testing would not reflect real-world reliability.
 
 ## License
 

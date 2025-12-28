@@ -1,6 +1,6 @@
 # ExStruct データモデル仕様
 
-**Version**: 0.10  
+**Version**: 0.13  
 **Status**: Authoritative — 本ドキュメントは ExStruct が返す全モデルの唯一の正準ソースです。  
 core / io / integrate は必ずこの仕様に従うこと。モデルは **pydantic v2** で実装します。
 
@@ -13,23 +13,44 @@ ExStruct は Excel ワークブックを LLM が扱いやすい **意味構造�
 
 ---
 
-# 2. Shape Model
+# 2. Shape / Arrow / SmartArt Model
+
+出力の `shapes` は下記 3 モデルのユニオンです。`kind` で判別します。
 
 ```jsonc
-Shape {
-  id: int | null   // sheet 内での通番 id（線・矢印は null の場合あり）
+BaseShape {
+  id: int | null   // sheet 内の通番 id（線/矢印は null の場合あり）
   text: str
   l: int           // left (px)
   t: int           // top  (px)
   w: int | null    // width (px)
   h: int | null    // height(px)
-  type: str | null // MSO 図形タイプのラベル
   rotation: float | null
+}
+
+Shape extends BaseShape {
+  kind: "shape"
+  type: str | null // MSO 図形タイプラベル
+}
+
+Arrow extends BaseShape {
+  kind: "arrow"
   begin_arrow_style: int | null
   end_arrow_style: int | null
   begin_id: int | null // コネクタ始点の接続先 Shape.id
   end_id: int | null   // コネクタ終点の接続先 Shape.id
   direction: "E"|"SE"|"S"|"SW"|"W"|"NW"|"N"|"NE" | null
+}
+
+SmartArtNode {
+  text: str
+  kids: [SmartArtNode]
+}
+
+SmartArt extends BaseShape {
+  kind: "smartart"
+  layout: str
+  nodes: [SmartArtNode]
 }
 ```
 
@@ -37,8 +58,8 @@ Shape {
 
 - `direction` は線や矢印の向きを 8 方位に正規化したもの。
 - 矢印スタイルは Excel の enum に対応。
-- `begin_id` / `end_id` は、コネクタが接続している図形の `id`（Excel の `ConnectorFormat.BeginConnectedShape` / `EndConnectedShape` に対応）。
-- 線や矢印の Shape では `id` が null になる場合があります。
+- `begin_id` / `end_id` は、コネクタが接続している図形の `id` に対応（`ConnectorFormat.BeginConnectedShape` / `EndConnectedShape`）。
+- `SmartArtNode` はネスト構造で表現し、`nodes` がツリーの根。
 
 ---
 
@@ -114,7 +135,7 @@ PrintAreaView {
   book_name: str
   sheet_name: str
   area: PrintArea
-  shapes: [Shape]
+  shapes: [Shape | Arrow | SmartArt]
   charts: [Chart]
   rows: [CellRow]          // 範囲に交差する行のみ、空列は落とす
   table_candidates: [str]  // 範囲内に収まるテーブル候補
@@ -132,7 +153,7 @@ PrintAreaView {
 ```jsonc
 SheetData {
   rows: [CellRow]
-  shapes: [Shape]
+  shapes: [Shape | Arrow | SmartArt]
   charts: [Chart]
   table_candidates: [str]
   print_areas: [PrintArea]
@@ -204,3 +225,4 @@ WorkbookData {
 - 0.10: Shape に `id` を追加し、コネクタの接続元/接続先を `id` 参照に変更し、`name` をペイロードから除去。
 - 0.11: コネクタのフィールド名を `begin_id` / `end_id` にリネーム。
 - 0.12: SheetData に背景色情報を格納する`colors_map`を追加。
+- 0.13: Shape を `Shape` / `Arrow` / `SmartArt` に分離し、`SmartArtNode` のネスト構造を追加。
