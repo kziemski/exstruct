@@ -142,16 +142,20 @@ class _SmartArtLike(Protocol):
 
 
 @runtime_checkable
-class _ShapeWithSmartArtLike(Protocol):
-    """Shape interface exposing SmartArt."""
+class _ShapeApiWithSmartArtLike(Protocol):
+    """COM shape interface exposing SmartArt."""
 
     HasSmartArt: bool
     SmartArt: _SmartArtLike
 
 
-def _shape_has_smartart(shp: object) -> bool:
+def _shape_has_smartart(shp: xw.Shape) -> bool:
     """Return True if the shape exposes SmartArt content."""
-    return isinstance(shp, _ShapeWithSmartArtLike) and shp.HasSmartArt
+    try:
+        api = shp.api
+    except Exception:
+        return False
+    return isinstance(api, _ShapeApiWithSmartArtLike) and api.HasSmartArt
 
 
 def _get_smartart_layout_name(smartart: _SmartArtLike | None) -> str:
@@ -305,9 +309,9 @@ def get_shapes_with_position(  # noqa: C901
 
                 shape_obj: Shape | Arrow | SmartArt
                 if has_smartart:
-                    smartart_obj = None
+                    smartart_obj: _SmartArtLike | None = None
                     try:
-                        smartart_obj = shp.SmartArt
+                        smartart_obj = shp.api.SmartArt
                     except Exception:
                         smartart_obj = None
                     shape_obj = SmartArt(
