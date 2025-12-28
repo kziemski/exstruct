@@ -101,6 +101,28 @@ def test_com_backend_extract_colors_map_returns_none_on_failure(
     )
 
 
+def test_com_backend_extract_print_areas_handles_sheet_error(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    class _FailingPageSetup:
+        @property
+        def PrintArea(self) -> str:
+            raise RuntimeError("boom")
+
+    class _FailingSheetApi:
+        PageSetup = _FailingPageSetup()
+
+    class _FailingSheet:
+        name = "Sheet1"
+        api = _FailingSheetApi()
+
+    class _DummyWorkbook:
+        sheets = [_FailingSheet()]
+
+    backend = ComBackend(_DummyWorkbook())
+    assert backend.extract_print_areas() == {}
+
+
 def test_openpyxl_backend_extract_print_areas(tmp_path: Path) -> None:
     wb = Workbook()
     ws = wb.active
