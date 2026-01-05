@@ -12,12 +12,18 @@ from exstruct.models import MergedCell
 
 
 def _make_merged_book(path: Path) -> None:
+    """Create a test workbook with a merged cell range.
+
+    Args:
+        path: Path where the workbook will be saved.
+    """
     wb = Workbook()
     ws = wb.active
     ws.title = "Sheet1"
     ws["A1"] = "Header"
     ws.merge_cells("A1:C1")
     wb.save(path)
+    wb.close()
 
 
 def test_openpyxl_backend_extract_merged_cells(tmp_path: Path) -> None:
