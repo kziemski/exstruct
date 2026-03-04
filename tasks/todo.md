@@ -201,3 +201,93 @@
   - profile=0: total=63, success=100.00%, p50=2.434769s, p95=2.933822s, max=3.162273s, failures=0
   - profile=1: total=63, success=100.00%, p50=3.346434s, p95=3.868789s, max=4.002274s, failures=0
   - artifacts: `tmp_eval_capture/profile_compare/results.json`, `tmp_eval_capture/profile_compare/summary.md`
+
+## Review Follow-up Tasks (PR #74, 2026-03-03)
+
+### Phase 1: P0 (Merge Blockers)
+- [x] `src/exstruct/mcp/shared/a1.py`
+  - Allow sheet-qualified range when `sheet` is omitted.
+  - Keep mismatch error when both are provided but inconsistent.
+- [x] `src/exstruct/mcp/shared/output_path.py`
+  - Replace non-atomic availability probe with atomic unique directory reservation.
+  - Add/update tests for concurrent-safe path selection behavior.
+- [x] `src/exstruct/render/__init__.py`
+  - Apply single timeout budget so result wait + join wait do not exceed configured limit.
+  - Update tests to assert timeout-budget behavior.
+- [x] `tests/render/`
+  - Add direct `subprocess_worker` entrypoint tests for success and failure contracts.
+
+### Phase 2: P1 (Same Patch, Low Risk)
+- [x] `src/exstruct/mcp/render_runner.py`
+  - Guard `quit()` teardown failures during COM probe (log and continue).
+- [x] `docs/release-notes/v0.5.3.md`
+  - Fix inaccurate statement about MCP tool additions.
+- [x] `src/exstruct/mcp/server.py`
+  - Clarify docstring for `sheet` requirement with qualified/unqualified `range` semantics.
+- [x] `src/exstruct/render/subprocess_worker.py`
+  - Ensure pre-request startup failures still emit actionable diagnostics.
+- [x] `AGENTS.md`
+  - Normalize wording for model policy (`Pydantic or dataclass`).
+
+### Phase 3: P2 (Quality, Defer Allowed)
+- [ ] Add missing Google-style docstrings in newly added tests:
+  - Partial: `tests/mcp/shared/test_a1.py` / `tests/mcp/shared/test_output_path.py` / capture-related tests in `tests/mcp/test_tool_models.py` updated.
+  - `tests/mcp/shared/test_a1.py`
+  - `tests/mcp/shared/test_output_path.py`
+  - `tests/mcp/test_tool_models.py`
+  - `tests/mcp/test_tools_handlers.py`
+- [ ] Decide whether to address Codecov patch coverage warning in this PR or split follow-up.
+
+### Deferred / Not In Scope For This Patch
+- [x] No forced migration from dataclass to Pydantic-only models.
+- [x] No broad render payload refactor to discriminated-union models in hot path.
+
+### Verification Checklist
+- [x] `uv run pytest tests/render/test_render_init.py tests/mcp/test_server.py -q`
+- [x] `uv run task precommit-run`
+- [ ] Confirm PR #74 review threads are resolved or replied with rationale.
+
+### Review Notes (to fill after implementation)
+- Summary:
+  - Implemented all P0/P1 code fixes requested in PR #74 follow-up:
+    - qualified range + omitted sheet now accepted in `a1` resolver,
+    - output directory reservation is atomic,
+    - subprocess result/join wait now share a single timeout budget,
+    - direct worker entrypoint tests were added,
+    - COM probe teardown is guarded,
+    - pre-request worker failures now emit actionable diagnostics and best-effort error payload.
+  - Updated docs text in server docstring, release notes, and AGENTS model-policy wording.
+- Verification:
+  - `uv run pytest tests/mcp/shared/test_a1.py tests/mcp/shared/test_output_path.py tests/mcp/test_tool_models.py tests/render/test_subprocess_worker.py tests/render/test_render_init.py tests/mcp/test_render_runner.py -q` -> 116 passed
+  - `uv run pytest tests/render/test_render_init.py tests/mcp/test_server.py -q` -> 81 passed
+  - `uv run task precommit-run` -> ruff / ruff-format / mypy passed
+- Residual risks:
+  - P2 docstring sweep and Codecov warning triage are still open.
+  - PR thread-close confirmation is pending manual GitHub review action.
+
+## Review Follow-up Tasks (Join Budget Start-Point, 2026-03-04)
+
+### Implementation
+- [x] `src/exstruct/render/__init__.py` の `_run_render_worker_subprocess` で `join_timeout_deadline` 算出位置を startup 完了後へ移動
+- [x] startup timeout と join timeout の責務分離を明示（startup は `startup_timeout_seconds` のみで判定）
+- [x] result wait / post-result join wait が同一 join 予算を共有することを維持
+- [x] 失敗時の stage 分類（`startup` / `result` / `join` / `worker`）と cleanup 挙動の回帰がないことを確認
+
+### Tests
+- [x] `tests/render/test_render_init.py` に「startup が遅いが startup timeout 内」の回帰テストを追加
+- [x] `tests/render/test_render_init.py` に「startup 後に join 予算を使い切った場合のみ stage=join」の境界テストを追加
+- [x] 既存の subprocess timeout 系テストが新しい起算点でも通るよう必要最小限で更新
+
+### Verification
+- [x] `uv run pytest tests/render/test_render_init.py tests/mcp/test_server.py -q`
+- [x] `uv run task precommit-run`
+
+### Review Notes (to fill after implementation)
+- Summary:
+  - `join_timeout_deadline` の起算を startup 完了後へ移し、起動待機時間が join 予算を消費しないよう修正。
+  - join 予算は startup 後の `result wait + join wait` だけで共有される挙動へ統一。
+- Verification:
+  - `uv run pytest tests/render/test_render_init.py tests/mcp/test_server.py -q` -> 82 passed
+  - `uv run task precommit-run` -> ruff / ruff-format / mypy passed
+- Residual risks:
+  - テストダブルが旧タイミング前提の場合、待機順序の更新で補正が必要になる可能性がある。

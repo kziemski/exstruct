@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
@@ -631,7 +632,8 @@ def test_run_render_worker_subprocess_success_when_join_timeout(
             lambda proc,
             *,
             result_path,
-            wait_timeout_seconds,
+            join_timeout_deadline,
+            join_timeout_seconds,
             post_exit_timeout_seconds: {"paths": [str(output_dir / "01_Sheet1.png")]},
         )
         result = render._run_render_worker_subprocess(
@@ -647,6 +649,129 @@ def test_run_render_worker_subprocess_success_when_join_timeout(
 
     assert result["paths"] == [str(output_dir / "01_Sheet1.png")]
     assert process.terminate_called is True
+
+
+def test_run_render_worker_subprocess_starts_join_budget_after_startup(
+    tmp_path: Path,
+) -> None:
+    """Start join timeout budget after startup wait has completed."""
+    pdf_path = tmp_path / "sheet_01.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4")
+    output_dir = tmp_path / "images"
+    process = FakeWorkerProcess(returncode=0)
+    captured: dict[str, float] = {}
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        timestamps = iter([100.0, 200.0, 200.02])
+        monkeypatch.setattr(
+            "exstruct.render.time.perf_counter",
+            lambda: next(timestamps, 200.02),
+        )
+        monkeypatch.setattr(render, "_start_render_worker_process", lambda _: process)
+
+        def _fake_startup(
+            proc: render._WorkerProcessProtocol,
+            *,
+            started_path: Path,
+            timeout_seconds: float,
+        ) -> None:
+            _ = proc
+            _ = started_path
+            _ = timeout_seconds
+            _ = time.perf_counter()
+
+        monkeypatch.setattr(render, "_wait_for_worker_startup", _fake_startup)
+
+        def _capture_deadline(
+            proc: render._WorkerProcessProtocol,
+            *,
+            result_path: Path,
+            join_timeout_deadline: float,
+            join_timeout_seconds: float,
+            post_exit_timeout_seconds: float,
+        ) -> dict[str, list[str] | str]:
+            _ = proc
+            _ = result_path
+            _ = join_timeout_seconds
+            _ = post_exit_timeout_seconds
+            captured["deadline"] = join_timeout_deadline
+            return {"paths": [str(output_dir / "01_Sheet1.png")]}
+
+        monkeypatch.setattr(render, "_wait_for_worker_result", _capture_deadline)
+        monkeypatch.setattr(
+            render,
+            "_wait_for_worker_join",
+            lambda proc, *, timeout_seconds: True,
+        )
+
+        render._run_render_worker_subprocess(
+            pdf_path,
+            output_dir,
+            0,
+            "Sheet1",
+            144,
+            startup_timeout_seconds=5.0,
+            result_timeout_seconds=1.0,
+            join_timeout_seconds=0.1,
+        )
+
+    assert captured["deadline"] == pytest.approx(200.1, abs=1e-6)
+
+
+def test_run_render_worker_subprocess_uses_single_join_budget(
+    tmp_path: Path,
+) -> None:
+    """Use remaining join budget after result wait instead of full timeout twice."""
+    pdf_path = tmp_path / "sheet_01.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4")
+    output_dir = tmp_path / "images"
+    process = FakeWorkerProcess(returncode=0)
+    captured: dict[str, float] = {}
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        timestamps = iter([100.0, 100.08])
+        monkeypatch.setattr(
+            "exstruct.render.time.perf_counter",
+            lambda: next(timestamps, 100.08),
+        )
+        monkeypatch.setattr(render, "_start_render_worker_process", lambda _: process)
+        monkeypatch.setattr(
+            render,
+            "_wait_for_worker_startup",
+            lambda proc, *, started_path, timeout_seconds: None,
+        )
+        monkeypatch.setattr(
+            render,
+            "_wait_for_worker_result",
+            lambda proc,
+            *,
+            result_path,
+            join_timeout_deadline,
+            join_timeout_seconds,
+            post_exit_timeout_seconds: {"paths": [str(output_dir / "01_Sheet1.png")]},
+        )
+
+        def _capture_join_timeout(
+            proc: render._WorkerProcessProtocol, *, timeout_seconds: float
+        ) -> bool:
+            _ = proc
+            captured["timeout"] = timeout_seconds
+            return True
+
+        monkeypatch.setattr(render, "_wait_for_worker_join", _capture_join_timeout)
+
+        render._run_render_worker_subprocess(
+            pdf_path,
+            output_dir,
+            0,
+            "Sheet1",
+            144,
+            startup_timeout_seconds=1.0,
+            result_timeout_seconds=1.0,
+            join_timeout_seconds=0.1,
+        )
+
+    assert captured["timeout"] == pytest.approx(0.02, abs=1e-6)
 
 
 def test_run_render_worker_subprocess_startup_error_is_actionable(
@@ -682,7 +807,8 @@ def test_wait_for_worker_result_timeout_has_join_stage(tmp_path: Path) -> None:
         render._wait_for_worker_result(
             process,
             result_path=result_path,
-            wait_timeout_seconds=0.01,
+            join_timeout_deadline=time.perf_counter() + 0.01,
+            join_timeout_seconds=0.01,
             post_exit_timeout_seconds=0.01,
         )
 
@@ -708,7 +834,8 @@ def test_wait_for_worker_result_allows_longer_than_post_exit_timeout(
         result = render._wait_for_worker_result(
             process,
             result_path=result_path,
-            wait_timeout_seconds=0.20,
+            join_timeout_deadline=time.perf_counter() + 0.20,
+            join_timeout_seconds=0.20,
             post_exit_timeout_seconds=0.01,
         )
     finally:
@@ -729,7 +856,8 @@ def test_wait_for_worker_result_reports_result_stage_after_exit(
         render._wait_for_worker_result(
             process,
             result_path=result_path,
-            wait_timeout_seconds=0.20,
+            join_timeout_deadline=time.perf_counter() + 0.20,
+            join_timeout_seconds=0.20,
             post_exit_timeout_seconds=0.01,
         )
 

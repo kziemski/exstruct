@@ -823,21 +823,24 @@ def _run_render_worker_subprocess(
                 started_path=started_path,
                 timeout_seconds=startup_timeout_seconds,
             )
+            join_timeout_deadline = time.perf_counter() + join_timeout_seconds
             result = _wait_for_worker_result(
                 process,
                 result_path=result_path,
-                wait_timeout_seconds=join_timeout_seconds,
+                join_timeout_deadline=join_timeout_deadline,
+                join_timeout_seconds=join_timeout_seconds,
                 post_exit_timeout_seconds=result_timeout_seconds,
             )
+            join_timeout_budget = _remaining_timeout_seconds(join_timeout_deadline)
             join_succeeded = _wait_for_worker_join(
                 process,
-                timeout_seconds=join_timeout_seconds,
+                timeout_seconds=join_timeout_budget,
             )
             if not join_succeeded:
                 logger.warning(
                     "render-stage=join.timeout exitcode=%s timeout_sec=%.1f",
                     process.returncode,
-                    join_timeout_seconds,
+                    join_timeout_budget,
                 )
             return result
         except RenderError:
@@ -902,11 +905,11 @@ def _wait_for_worker_result(
     process: _WorkerProcessProtocol,
     *,
     result_path: Path,
-    wait_timeout_seconds: float,
+    join_timeout_deadline: float,
+    join_timeout_seconds: float,
     post_exit_timeout_seconds: float,
 ) -> dict[str, list[str] | str]:
     """Wait for worker result file using join timeout as primary upper bound."""
-    deadline = time.perf_counter() + wait_timeout_seconds
     while True:
         if result_path.exists():
             return _read_worker_result(result_path)
@@ -915,11 +918,12 @@ def _wait_for_worker_result(
                 process,
                 result_path=result_path,
                 timeout_seconds=post_exit_timeout_seconds,
+                join_timeout_deadline=join_timeout_deadline,
             )
-        if time.perf_counter() >= deadline:
+        if time.perf_counter() >= join_timeout_deadline:
             raise RenderError(
                 "Failed to render PDF pages: stage=join timed out "
-                f"after {wait_timeout_seconds:.1f}s."
+                f"after {join_timeout_seconds:.1f}s."
             )
         time.sleep(0.05)
 
@@ -929,9 +933,11 @@ def _wait_for_result_after_exit(
     *,
     result_path: Path,
     timeout_seconds: float,
+    join_timeout_deadline: float,
 ) -> dict[str, list[str] | str]:
     """Wait briefly for result file after worker process has exited."""
-    deadline = time.perf_counter() + timeout_seconds
+    result_deadline = time.perf_counter() + timeout_seconds
+    deadline = min(result_deadline, join_timeout_deadline)
     while True:
         if result_path.exists():
             return _read_worker_result(result_path)
@@ -981,12 +987,20 @@ def _wait_for_worker_join(
     """Wait for worker termination after result is received."""
     if process.poll() is not None:
         return True
+    if timeout_seconds <= 0:
+        _terminate_worker_process(process)
+        return False
     try:
         process.wait(timeout=timeout_seconds)
         return True
     except subprocess.TimeoutExpired:
         _terminate_worker_process(process)
         return False
+
+
+def _remaining_timeout_seconds(deadline: float) -> float:
+    """Return remaining timeout seconds from absolute deadline."""
+    return max(0.0, deadline - time.perf_counter())
 
 
 def _terminate_worker_process(process: _WorkerProcessProtocol) -> None:
