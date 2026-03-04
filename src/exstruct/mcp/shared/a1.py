@@ -114,7 +114,11 @@ def resolve_sheet_and_range(
         return SheetRangeSelection(sheet=normalized_sheet, range_ref=None)
     parsed = parse_qualified_a1_range(range_ref)
     if normalized_sheet is None:
-        raise ValueError("sheet is required when range is specified.")
+        if parsed.sheet is None:
+            raise ValueError(
+                "sheet is required when range is specified and range is unqualified."
+            )
+        return SheetRangeSelection(sheet=parsed.sheet, range_ref=parsed.range_ref)
     if parsed.sheet is not None and parsed.sheet != normalized_sheet:
         raise ValueError("sheet and range sheet qualifier must match.")
     return SheetRangeSelection(sheet=normalized_sheet, range_ref=parsed.range_ref)

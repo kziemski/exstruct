@@ -113,14 +113,27 @@ def resolve_image_output_dir(
 
 
 def next_available_directory(path: Path, *, policy: PathPolicy | None) -> Path:
-    """Return next available directory path with numeric suffix when needed."""
-    if not path.exists():
-        return path
+    """Reserve and return a unique directory path with numeric suffix when needed."""
+    reserved = _reserve_directory(path)
+    if reserved is not None:
+        if policy is not None:
+            policy.ensure_allowed(reserved)
+        return reserved
     stem = path.name
     for idx in range(1, 10_000):
         candidate = path.with_name(f"{stem}_{idx}")
         if policy is not None:
             candidate = policy.ensure_allowed(candidate)
-        if not candidate.exists():
-            return candidate
+        reserved = _reserve_directory(candidate)
+        if reserved is not None:
+            return reserved
     raise RuntimeError(f"Failed to resolve unique path for {path}")
+
+
+def _reserve_directory(path: Path) -> Path | None:
+    """Create one directory atomically and return path when successful."""
+    try:
+        path.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        return None
+    return path.resolve()

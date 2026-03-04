@@ -23,6 +23,7 @@ from exstruct.mcp.tools import (
 
 
 def test_extract_tool_input_defaults() -> None:
+    """Apply default extraction arguments when omitted."""
     payload = ExtractToolInput(xlsx_path="input.xlsx")
     assert payload.mode == "standard"
     assert payload.format == "json"
@@ -31,6 +32,7 @@ def test_extract_tool_input_defaults() -> None:
 
 
 def test_capture_sheet_images_tool_input_defaults() -> None:
+    """Apply capture tool defaults when optional fields are omitted."""
     payload = CaptureSheetImagesToolInput(xlsx_path="input.xlsx")
     assert payload.out_dir is None
     assert payload.dpi == 144
@@ -39,16 +41,31 @@ def test_capture_sheet_images_tool_input_defaults() -> None:
 
 
 def test_capture_sheet_images_tool_input_rejects_invalid_dpi() -> None:
+    """Reject non-positive DPI values."""
     with pytest.raises(ValidationError):
         CaptureSheetImagesToolInput(xlsx_path="input.xlsx", dpi=0)
 
 
-def test_capture_sheet_images_tool_input_requires_sheet_for_range() -> None:
+def test_capture_sheet_images_tool_input_requires_sheet_for_unqualified_range() -> None:
+    """Require `sheet` only when range has no sheet qualifier."""
     with pytest.raises(ValidationError, match="sheet is required"):
         CaptureSheetImagesToolInput(xlsx_path="input.xlsx", range="A1:B2")
 
 
+def test_capture_sheet_images_tool_input_accepts_qualified_range_without_sheet() -> (
+    None
+):
+    """Accept qualified ranges when top-level `sheet` is omitted."""
+    payload = CaptureSheetImagesToolInput(
+        xlsx_path="input.xlsx",
+        range="'Sheet 1'!a1:b2",
+    )
+    assert payload.sheet == "Sheet 1"
+    assert payload.range == "A1:B2"
+
+
 def test_capture_sheet_images_tool_input_normalizes_qualified_range() -> None:
+    """Normalize qualified range and keep validated sheet name."""
     payload = CaptureSheetImagesToolInput(
         xlsx_path="input.xlsx",
         sheet="Sheet 1",
@@ -59,6 +76,7 @@ def test_capture_sheet_images_tool_input_normalizes_qualified_range() -> None:
 
 
 def test_capture_sheet_images_tool_input_rejects_sheet_mismatch() -> None:
+    """Reject mismatched sheet values across fields."""
     with pytest.raises(ValidationError, match="must match"):
         CaptureSheetImagesToolInput(
             xlsx_path="input.xlsx",

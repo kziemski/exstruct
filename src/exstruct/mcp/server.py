@@ -752,7 +752,8 @@ def _register_capture_sheet_images_tool(app: FastMCP, *, policy: PathPolicy) -> 
                 creates a unique directory under server `--root` using
                 `<workbook_stem>_images` with numeric suffixes as needed.
             dpi: Rendering DPI (must be >= 1).
-            sheet: Optional target sheet name. Required when `range` is specified.
+            sheet: Optional target sheet name. Required only when `range` is
+                unqualified (for example, `A1:B2`).
             range: Optional A1 range (`A1:B2`) with optional sheet qualifier
                 (`Sheet1!A1:B2`, `'Sheet 1'!A1:B2`).
 

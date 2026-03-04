@@ -4,6 +4,7 @@ import argparse
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 
@@ -95,6 +96,25 @@ def _format_error(exc: Exception) -> str:
     return type(exc).__name__
 
 
+def _infer_result_path_from_request_file(request_file: Path | None) -> Path | None:
+    """Infer result path from request payload when full parsing fails."""
+    if request_file is None:
+        return None
+    try:
+        payload = json.loads(request_file.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    result_path = payload.get("result_path")
+    if not isinstance(result_path, str):
+        return None
+    candidate = result_path.strip()
+    if not candidate:
+        return None
+    return Path(candidate)
+
+
 def _render_pdf_pages(request: RenderWorkerRequest) -> list[str]:
     """Render all pages of one PDF to PNG files."""
     import pypdfium2 as pdfium
@@ -120,19 +140,32 @@ def _render_pdf_pages(request: RenderWorkerRequest) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     """Run the render worker entrypoint."""
     request: RenderWorkerRequest | None = None
+    request_file: Path | None = None
     try:
         args = _parse_args(argv)
-        request = _read_request(Path(args.request_file))
+        request_file = Path(args.request_file)
+        request = _read_request(request_file)
         request.started_path.parent.mkdir(parents=True, exist_ok=True)
         request.started_path.write_text("started", encoding="utf-8")
         paths = _render_pdf_pages(request)
         _write_result(request.result_path, RenderWorkerResult.success(paths))
         return 0
     except Exception as exc:  # pragma: no cover - validated by parent-side tests
+        error_message = _format_error(exc)
         if request is not None:
             _write_result(
-                request.result_path, RenderWorkerResult.failure(_format_error(exc))
+                request.result_path, RenderWorkerResult.failure(error_message)
             )
+        else:
+            inferred_result_path = _infer_result_path_from_request_file(request_file)
+            if inferred_result_path is not None:
+                try:
+                    _write_result(
+                        inferred_result_path, RenderWorkerResult.failure(error_message)
+                    )
+                except Exception:
+                    pass
+        print(error_message, file=sys.stderr)
         return 1
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -9,6 +10,8 @@ from exstruct import render
 from .io import PathPolicy
 from .shared.a1 import resolve_sheet_and_range
 from .shared.output_path import resolve_image_output_dir
+
+logger = logging.getLogger(__name__)
 
 
 class CaptureSheetImagesRequest(BaseModel):
@@ -115,4 +118,7 @@ def _ensure_com_available() -> None:
         if app is not None:
             quit_method = getattr(app, "quit", None)
             if callable(quit_method):
-                quit_method()
+                try:
+                    quit_method()
+                except Exception as exc:  # pragma: no cover - defensive probe cleanup
+                    logger.warning("Failed to close Excel app after COM probe: %s", exc)
