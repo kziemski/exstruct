@@ -735,3 +735,7 @@ BSD-3-Clause. See `LICENSE` for details.
 
 - API Reference (GitHub Pages): https://harumiweb.github.io/exstruct/
 - JSON Schemas: see `schemas/` (one file per model); regenerate via `python scripts/gen_json_schema.py`.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/image?repos=harumiWeb/exstruct&type=date&legend=top-left)](https://www.star-history.com/?repos=harumiWeb%2Fexstruct&type=date&legend=top-left)
