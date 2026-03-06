@@ -1,5 +1,23 @@
 # Todo
 
+## 2026-03-06 README Sync
+
+### Planning
+
+- [x] `README.ja.md` を基準に `README.md` / `docs/README.ja.md` / `docs/README.en.md` の差分を整理する
+- [x] `docs/` 配下で必要な画像・リンク・相対パス差分を確認する
+- [x] `README.md` を刷新後の日本語版構成に合わせて更新する
+- [x] `docs/README.ja.md` を刷新後の日本語版構成に合わせて更新する
+- [x] `docs/README.en.md` を刷新後の日本語版構成に合わせて更新する
+- [x] 差分確認で 3 ファイルの整合性を確認し、レビュー結果を記録する
+
+### Review
+
+- 3 ファイルとも先頭をロゴ + バッジ構成へ統一し、刷新後 `README.ja.md` に合わせて導入文・章立て・MCP 節を更新した
+- `docs/README.ja.md` / `docs/README.en.md` は `assets/...` や `architecture/...` など `docs/` 配下向けの相対パスへ調整した
+- `Documentation build` / `MCP追加メモ（UX Hardening）` / 旧 `Migration note` など、基準 README にない節は除去した
+- `git diff` と `rg` で対象 3 ファイルに対する主要見出し・MCP 詳細・画像パス・不要節の有無を確認した
+
 ## Planning
 
 - [x] issue 56 の本文とコメントを確認し、must-have / nice-to-have / 非ゴールを整理する

@@ -1,31 +1,36 @@
-# ExStruct — Excel 構造化抽出エンジン
+<p align="center">
+  <a href="https://harumiweb.github.io/exstruct/">
+    <img src="assets/logo.png" alt="ExStruct Logo" width="600">
+  </a>
+</p>
+
+<div align="center" style="max-width: 600px; margin: auto;">
 
 [![PyPI version](https://badge.fury.io/py/exstruct.svg)](https://pypi.org/project/exstruct/) [![PyPI Downloads](https://static.pepy.tech/personalized-badge/exstruct?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/exstruct) ![Licence: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue?style=flat-square) [![pytest](https://github.com/harumiWeb/exstruct/actions/workflows/pytest.yml/badge.svg)](https://github.com/harumiWeb/exstruct/actions/workflows/pytest.yml) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/e081cb4f634e4175b259eb7c34f54f60)](https://app.codacy.com/gh/harumiWeb/exstruct/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) [![codecov](https://codecov.io/gh/harumiWeb/exstruct/graph/badge.svg?token=2XI1O8TTA9)](https://codecov.io/gh/harumiWeb/exstruct) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/harumiWeb/exstruct) ![GitHub Repo stars](https://img.shields.io/github/stars/harumiWeb/exstruct)
 
+</div>
 
-![ExStruct Image](assets/icon.webp)
+# ExStruct — Excel 構造化抽出エンジン
 
-ExStruct は Excel ワークブックを読み取り、構造化データ（セル・テーブル候補・図形・チャート・SmartArt・印刷範囲ビュー）をデフォルトで JSON に出力します。必要に応じて YAML/TOON も選択でき、COM/Excel 環境ではリッチ抽出、非 COM 環境ではセル＋テーブル候補＋印刷範囲へのフォールバックで安全に動作します。LLM/RAG 向けに検出ヒューリスティックや出力モードを調整可能です。
+ExStruct は Excel ワークブックを読み取り、構造化データ（セル・テーブル候補・図形・チャート・SmartArt・印刷範囲ビュー）をデフォルトで JSON に出力します。CLI と Python API と MCPサーバー を提供し、LLM/RAG 向けの前処理やドキュメント理解に最適化された抽出オプションを備えています。
+
+- COM/Excel 環境 (Windows) ではリッチ抽出
+- 非 COM 環境 (Linux/macOS) では
+  - LibreOffice runtime があればセル・テーブル候補・図形・グラフ（best-effort）
+  - それ以外の環境ではセル＋テーブル候補＋印刷範囲へのフォールバックで安全に動作します。
+
+LLM/RAG 向けに検出ヒューリスティックや出力モードを調整可能です。
 
 ## 主な特徴
 
 - **Excel → 構造化 JSON**: セル、図形、チャート、SmartArt、テーブル候補、セル結合範囲、印刷範囲/自動改ページ範囲（PrintArea/PrintAreaView）をシート単位・範囲単位で出力。
-- **出力モード**: `light`（セル＋テーブル候補＋印刷範囲のみ）、`libreoffice`（`.xlsx/.xlsm` 向けの best-effort 非 COM モード。LibreOffice runtime があれば結合セル・図形・コネクタ・チャートを追加）、`standard`（Excel COM でテキスト付き図形＋矢印、チャート、SmartArt、セル結合範囲）、`verbose`（全図形を幅高さ付きで出力、セルのハイパーリンク/`colors_map`/`formulas_map`も出力）。
+- **出力モード**: `light`（セル＋テーブル候補＋印刷範囲のみ）、`libreoffice`（`.xlsx/.xlsm` 向けの best-effort 非 COM モード。LibreOffice runtime があれば結合セル・図形・コネクタ・チャートを追加）、`standard`（Excel COM でテキスト付き図形＋矢印、チャート、SmartArt、セル結合範囲）、`verbose`（全図形を幅高さ付きで出力、セルのハイパーリンクも出力）。
 - **数式取得**: `formulas_map`（数式文字列 → セル座標）を openpyxl/COM で取得。`verbose` 既定、`include_formulas_map` で制御。
 - **フォーマット**: JSON（デフォルトはコンパクト、`--pretty` で整形）、YAML、TOON（任意依存）。
 - **テーブル検出のチューニング**: API でヒューリスティックを動的に変更可能。
 - **ハイパーリンク抽出**: `verbose` モード（または `include_cell_links=True` 指定）でセルのリンクを `links` に出力。
 - **CLI レンダリング**（Excel COM 必須）: `standard` / `verbose` では PDF とシート画像を生成可能。
 - **安全なフォールバック**: Excel COM または LibreOffice runtime が不在でもプロセスは落ちず、セル＋テーブル候補＋印刷範囲に切り替えます（図形・チャートは空）。
-
-## ベンチマーク
-
-![Benchmark Chart](../benchmark/public/plots/markdown_quality.png)
-
-このリポジトリには、ExcelドキュメントのRAG/LLM前処理に焦点を当てたベンチマークレポートが含まれています。
-私たちは2つの視点から追跡しています。(1) コア抽出精度と (2) 下流構造クエリのための再構築ユーティリティ (RUB) です。
-作業サマリーについては`benchmark/REPORT.md`を、公開バンドルについては`benchmark/public/REPORT.md`を参照してください。
-現在の結果はn=12のケースに基づいており、今後さらに拡張される予定です。
 
 ## インストール
 
@@ -66,7 +71,24 @@ CLI の既定では列キーは従来どおり 0 始まりの数値文字列（`
 
 ## MCPサーバー (標準入出力)
 
-MCPの拡張機能をインストールし、標準入出力サーバーを実行します。
+### uvx を使ったクイックスタート（推奨）
+
+インストール不要で直接実行できます：
+
+```bash
+uvx --from 'exstruct[mcp]' exstruct-mcp --root C:\data --log-file C:\logs\exstruct-mcp.log --on-conflict rename
+```
+
+利点：
+
+- `pip install` が不要
+- 依存関係の自動管理
+- 環境の分離
+- バージョン指定が簡単: `uvx --from 'exstruct[mcp]==0.4.4' exstruct-mcp`
+
+### 従来のインストール方法
+
+pip でインストールすることもできます：
 
 ```bash
 pip install exstruct[mcp]
@@ -76,6 +98,7 @@ exstruct-mcp --root C:\data --log-file C:\logs\exstruct-mcp.log --on-conflict re
 利用可能なツール:
 
 - `exstruct_extract`
+- `exstruct_capture_sheet_images`
 - `exstruct_make`
 - `exstruct_patch`
 - `exstruct_read_json_chunk`
@@ -84,21 +107,35 @@ exstruct-mcp --root C:\data --log-file C:\logs\exstruct-mcp.log --on-conflict re
 - `exstruct_read_formulas`
 - `exstruct_validate_input`
 
-- `exstruct_read_range` / `exstruct_read_cells` / `exstruct_read_formulas` は v0.4.4 で追加され、MCPサーバー実装とテストに登録済みです。
-- MCPでは `exstruct_extract` の `options.alpha_col=true` が既定です（列キーは `A`, `B`, ...）。従来の0始まり数値キーが必要な場合は `options.alpha_col=false` を指定してください。
+注意点:
+
+- `exstruct_capture_sheet_images` は COM 専用（Experimental）で、`sheet` / `range`（`A1:B2`, `Sheet1!A1:B2`, `'Sheet 1'!A1:B2`）の指定に対応します。`out_dir` 未指定時は MCP `--root` 配下に一意な `<workbook_stem>_images` ディレクトリを作成します。
+- MCP サーバー起動時は `EXSTRUCT_RENDER_SUBPROCESS=1` が既定（`setdefault`）です。同一プロセスで実行したい場合は、起動前に `EXSTRUCT_RENDER_SUBPROCESS=0` を明示指定してください。
+- `exstruct_capture_sheet_images` のタイムアウト調整: `EXSTRUCT_MCP_CAPTURE_SHEET_IMAGES_TIMEOUT_SEC`（ツール全体）, `EXSTRUCT_RENDER_SUBPROCESS_STARTUP_TIMEOUT_SEC`（worker 起動）, `EXSTRUCT_RENDER_SUBPROCESS_JOIN_TIMEOUT_SEC`（主待機予算）, `EXSTRUCT_RENDER_SUBPROCESS_RESULT_TIMEOUT_SEC`（終了後の結果待ち猶予）。
+- サブプロセス失敗は `stage=startup|join|result|worker` の形で返るため、起動失敗・タイムアウト・worker 側失敗を切り分けできます。
+- `EXSTRUCT_RENDER_SUBPROCESS=1` のトレードオフ: サブプロセス起動/同期オーバーヘッドと、worker 側のモジュール解決依存が増えます。
+- `EXSTRUCT_RENDER_SUBPROCESS=0` のトレードオフ: クラッシュ分離が弱くなり、長時間稼働時のメモリ圧迫リスクが上がります。
+- 標準入出力の応答を汚染しないよう、ログは標準エラー出力（およびオプションで`--log-file`で指定したファイル）に出力されます。
+- Windows の Excel 環境では `standard` / `verbose` が COM を使って最もリッチな抽出を行います。
+- Linux/macOS/server 環境では `libreoffice` が best-effort rich mode です。COM 出力の strict subset ではなく、LibreOffice + OOXML 由来の再構成なので精度差があります。
+- `libreoffice` は v1 では PDF/PNG rendering と auto page-break 計算を行いません。
+- `exstruct_patch` は `backend` 指定をサポートします。
+  - `auto`（既定）: COM が使える場合は COM を優先し、不可なら openpyxl
+  - `com`: COM を強制（`dry_run` / `return_inverse_ops` / `preflight_formula_check` は指定不可）
+  - `openpyxl`: openpyxl を強制（`.xls` は非対応）
+- `create_chart` は COM 専用です（`create_chart` を含むリクエストでは `backend="openpyxl"` は指定不可）。また、`dry_run` / `return_inverse_ops` / `preflight_formula_check` も指定できません。
+- `create_chart` の `chart_type` は `line` / `column` / `bar` / `area` / `pie` / `doughnut` / `scatter` / `radar` に対応します（エイリアス: `column_clustered` / `bar_clustered` / `xy_scatter` / `donut`）。
+- `create_chart` の `data_range` は単一範囲文字列または `list[str]`（複数系列）を受け付け、`data_range` / `category_range` ともにシート名付き範囲（`Sheet2!A1:B10`, `'Sales Data'!A1:B10`）を指定できます。
+- `create_chart` では `chart_title` / `x_axis_title` / `y_axis_title` による明示タイトル設定が可能です。
+- `create_chart` と `apply_table_style` は、バックエンドが COM に解決される場合（`backend="com"` または COM 利用可能な `backend="auto"`）は1回のリクエストで同時指定できます。
+- Windows で `apply_table_style` を COM で安定実行するには、デスクトップ版 Excel が起動可能で、`range` がヘッダー行を含む連続 A1 範囲であることを確認してください。
+- `exstruct_patch` のエラー詳細には `error_code` / `failed_field` / `raw_com_message` が含まれる場合があります。テーブル関連コードは `table_style_invalid` / `list_object_add_failed` / `com_api_missing` です。
+- `exstruct_patch` の応答には実際に使われたバックエンドを示す `engine`（`com` / `openpyxl`）が含まれます。`restore_design_snapshot` は引き続き openpyxl 専用です。
+- 新規ブック作成は `exstruct_make`、既存ブック編集は `exstruct_patch` を使い分けてください。
 - `exstruct_make` は新規ブック作成と `ops` 適用を1回で実行します（`out_path` 必須、`ops` は任意）。
   - 対応拡張子: `.xlsx` / `.xlsm` / `.xls`
   - 初期シート名は `Sheet1` に正規化されます
   - `.xls` は COM 必須で、`backend=openpyxl` は指定できません
-- `create_chart` は COM 専用です（`create_chart` を含むリクエストでは `backend="openpyxl"` は指定不可）。また、`dry_run` / `return_inverse_ops` / `preflight_formula_check` も指定できません。
-- `create_chart.chart_type` は `line` / `column` / `bar` / `area` / `pie` / `doughnut` / `scatter` / `radar` をサポートします。
-- `create_chart.chart_type` の alias は `column_clustered` -> `column`、`bar_clustered` -> `bar`、`xy_scatter` -> `scatter`、`donut` -> `doughnut` です。
-- `create_chart` と `apply_table_style` は、バックエンドが COM に解決される場合（`backend="com"` または COM 利用可能な `backend="auto"`）は1回のリクエストで同時指定できます。
-
-注意点:
-
-- 標準入出力の応答を汚染しないよう、ログは標準エラー出力（およびオプションで`--log-file`で指定したファイル）に出力されます。
-- WindowsのExcel環境では、標準/詳細モードでCOMを利用して、よりリッチな抽出が可能です。Windows以外ではCOMは利用できず、抽出はopenpyxlベースのフォールバック機能を使用します。
 
 各AIエージェントでのMCP設定ガイド:
 
@@ -187,7 +224,7 @@ set_table_detection_params(
 
 - **light**: セル＋テーブル候補のみ（COM 不要）。
 - **standard**: テキスト付き図形＋矢印、チャート（COM ありで取得）、テーブル候補。セルのハイパーリンクは `include_cell_links=True` を指定したときのみ出力。
-- **verbose**: 全図形（幅高さ付き）、チャート、`table_candidates`、ハイパーリンク、`colors_map`、`formulas_map` を出力。
+- **verbose**: all shapes, charts, table_candidates, hyperlinks, and `colors_map`.
 
 ## エラーハンドリング / フォールバック
 
@@ -216,7 +253,7 @@ exstruct input.xlsx --pdf --image --dpi 144
 - 図形のみで作成したフローチャート
 
 （下画像が実際のサンプル Excel シート）
-![Sample Excel](/assets/demo_sheet.png)
+![Sample Excel](assets/demo_sheet.png)
 サンプル Excel: `sample/sample.xlsx`
 
 ### 1. Input: Excel Sheet Overview
@@ -395,7 +432,7 @@ flowchart TD
 
 ### Excel データ
 
-![一般的な申請書Excel](/assets/demo_form.ja.png)
+![一般的な申請書Excel](assets/demo_form.ja.png)
 
 ### ExStruct JSON
 
@@ -429,44 +466,6 @@ flowchart TD
   }
 }
 
-```
-
-### 互換性メモ（v0.3.5）: merged_cells 形式変更
-
-`merged_cells` は v0.3.5 で「オブジェクト配列」から「schema/items」形式に変更されました（JSON 利用側には破壊的変更）。
-
-旧形式（<= v0.3.2）:
-
-```json
-"merged_cells": [
-  { "r1": 55, "c1": 5, "r2": 55, "c2": 10, "v": "申請者が被保険者本人の場合には、下記について記載は不要です。" },
-  { "r1": 51, "c1": 5, "r2": 52, "c2": 6, "v": "有価証券" }
-]
-```
-
-新形式（v0.3.5+）:
-
-```json
-"merged_cells": {
-  "schema": ["r1", "c1", "r2", "c2", "v"],
-  "items": [
-    [55, 5, 55, 10, "申請者が被保険者本人の場合には、下記について記載は不要です。"],
-    [51, 5, 52, 6, "有価証券"]
-  ]
-}
-```
-
-移行例（併存パース）:
-
-```python
-def normalize_merged_cells(raw):
-    schema = ["r1", "c1", "r2", "c2", "v"]
-    if isinstance(raw, list):
-        items = [[d.get(k, " ") for k in schema] for d in raw]
-        return {"schema": schema, "items": items}
-    if isinstance(raw, dict) and "schema" in raw and "items" in raw:
-        return raw
-    return None
 ```
 
 ### LLM 推論による ExStruct JSON → Markdown 変換結果
@@ -609,6 +608,16 @@ X 市長
 
 つまり **exstruct = “Excel を AI が理解できるフォーマットに変換するエンジン”** です。
 
+
+## ベンチマーク
+
+![Benchmark Chart](../benchmark/public/plots/markdown_quality.png)
+
+このリポジトリには、ExcelドキュメントのRAG/LLM前処理に焦点を当てたベンチマークレポートが含まれています。
+私たちは2つの視点から追跡しています。(1) コア抽出精度と (2) 下流構造クエリのための再構築ユーティリティ (RUB) です。
+作業サマリーについては`benchmark/REPORT.md`を、公開バンドルについては`benchmark/public/REPORT.md`を参照してください。
+現在の結果はn=12のケースに基づいており、今後さらに拡張される予定です。
+
 ## 備考
 
 - デフォルト JSON はコンパクト（トークン削減目的）。可読性が必要なら `--pretty` / `pretty=True` を利用してください。
@@ -641,14 +650,14 @@ ExStruct はパイプライン型のアーキテクチャを採用し、
 抽出戦略（Backend）とオーケストレーション（Pipeline）、
 そして意味モデルの構築を分離しています。
 
-→ 参照: [docs/architecture/pipeline.md](docs/architecture/pipeline.md)
+→ 参照: [architecture/pipeline.md](architecture/pipeline.md)
 
 ## コントリビュート
 
 ExStruct の内部実装を拡張する場合は、
 コントリビューター向けのアーキテクチャガイドを確認してください。
 
-→ [docs/contributors/architecture.md](docs/contributors/architecture.md)
+→ [contributors/architecture.md](contributors/architecture.md)
 
 ## カバレッジに関する注意
 
@@ -663,12 +672,6 @@ BSD-3-Clause. See `LICENSE` for details.
 
 - API リファレンス (GitHub Pages): https://harumiweb.github.io/exstruct/
 - JSON Schema は `schemas/` にモデルごとに配置しています。モデル変更後は `python scripts/gen_json_schema.py` で再生成してください。
-
-## MCP追加メモ（UX Hardening）
-
-- `exstruct_get_runtime_info` を追加しました。`root` / `cwd` / `platform` / `path_examples` を1回で確認できます。
-- `exstruct_make` の相対 `out_path` は MCP の `--root` 基準で解決されます。
-- 色指定は `color`（文字色）と `fill_color`（背景色）を分離し、`RRGGBB` / `AARRGGBB`（`#` あり・なし）を受け付けます。
 
 ## Star History
 
