@@ -8,7 +8,16 @@ _Version 0.2 / Last update: 2025-12-13
 
 <!-- TOC -->
 
-Corporate Usage License Guide: exstruct
+- [Purpose of This Document](#purpose-of-this-document)
+- [1. License of exstruct](#1-license-of-exstruct)
+- [2. What You ARE Allowed To Do (DO)](#2-what-you-are-allowed-to-do-do)
+- [3. Required Compliance Points (MUST)](#3-required-compliance-points-must)
+- [4. What You MUST NOT Do (DON’T)](#4-what-you-must-not-do-dont)
+- [5. License Compatibility of Dependencies](#5-license-compatibility-of-dependencies)
+- [6. Redistribution Inside the Company](#6-redistribution-inside-the-company)
+- [7. Conclusion: exstruct Is Highly Suitable for Corporate Use](#7-conclusion-exstruct-is-highly-suitable-for-corporate-use)
+- [Appendix: Full BSD-3-Clause License Text](#appendix-full-bsd-3-clause-license-text)
+- [About This Document](#about-this-document)
 
 <!-- /TOC -->
 

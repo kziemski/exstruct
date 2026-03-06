@@ -235,11 +235,10 @@
 
 ### Phase 3: P2 (Quality, Defer Allowed)
 - [ ] Add missing Google-style docstrings in newly added tests: (owner: @harumiWeb, due: 2026-03-07)
-  - Partial: `tests/mcp/shared/test_a1.py` / `tests/mcp/shared/test_output_path.py` / capture-related tests in `tests/mcp/test_tool_models.py` updated.
+  - Partial: `tests/mcp/shared/test_a1.py` / `tests/mcp/shared/test_output_path.py` / capture-related tests in `tests/mcp/test_tool_models.py` / `tests/mcp/test_tools_handlers.py` updated.
   - `tests/mcp/shared/test_a1.py`
   - `tests/mcp/shared/test_output_path.py`
   - `tests/mcp/test_tool_models.py`
-  - `tests/mcp/test_tools_handlers.py`
 - [ ] Decide whether to address Codecov patch coverage warning in this PR or split follow-up. (owner: @harumiWeb, due: 2026-03-07)
 
 ### Deferred / Not In Scope For This Patch
@@ -249,7 +248,7 @@
 ### Verification Checklist
 - [x] `uv run pytest tests/render/test_render_init.py tests/mcp/test_server.py -q`
 - [x] `uv run task precommit-run`
-- [x] Confirm PR #74 review threads are resolved or replied with rationale. (owner: @harumiWeb, due: 2026-03-05)
+- [ ] Confirm PR #74 review threads are resolved or replied with rationale. (owner: @harumiWeb, due: 2026-03-07)
 
 ### Review Notes (to fill after implementation)
 - Summary:
@@ -437,3 +436,22 @@
   - `fetch_pr_issues(..., status='open')` + `format_for_ai(..., 'Warning')` -> 0 件
 - Residual risks:
   - Codacy UI が過去解析スナップショットを表示している場合、最新コミット反映まで表示が遅延する。
+
+## CodeRabbit Additional Follow-up Plan (2026-03-06)
+
+- [x] 最新 CodeRabbit 追加レビューを取得し、未対応指摘を抽出
+- [x] `tasks/feature_spec.md` に今回ラウンドの仕様を追記
+- [x] `docs/license-guide.md` の TOC を見出しリンク化
+- [x] `tasks/todo.md` の review-thread 状態と pending 一覧の整合を修正
+- [x] `uv run task precommit-run` を実行
+
+## CodeRabbit Additional Follow-up Review
+
+- Summary:
+  - `docs/license-guide.md` の TOC を heading anchor への Markdown リンクに変更し、CodeRabbit の TOC 指摘へ対応した。
+  - `tasks/todo.md` の review-thread 状態を「未完了」に統一し、同一セクション内の pending 記述と整合させた。
+  - P2 docstring pending リストから `tests/mcp/test_tools_handlers.py` の未完了扱いを除外した。
+- Verification:
+  - `uv run task precommit-run` -> ruff / ruff-format / mypy passed
+- Residual risks:
+  - PR #74 review-thread の最終 close/resolve は GitHub 上で継続確認が必要。
