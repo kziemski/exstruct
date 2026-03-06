@@ -369,9 +369,9 @@
 - Verification:
   - `uv run pytest tests/render/test_subprocess_worker.py tests/render/test_render_init.py -q` -> 44 passed
   - `uv run task precommit-run` -> ruff / ruff-format / mypy passed
-  - `python scripts/codacy_issues.py --pr 74 --min-level Warning` を再実行（API結果は 11 件のまま）
+  - `python scripts/codacy_issues.py --pr 74 --min-level Warning` を再実行（post-push で 0 件を確認）
 - Residual risks:
-  - Codacy API が返す PR #74 issue はリモート解析結果依存のため、ローカル修正反映前の古い結果が残っている可能性がある。
+  - なし（2026-03-06 post-push 再取得で 0 件）。
 
 ## PR #74 Additional Review Round 2 Plan (2026-03-06)
 
@@ -395,4 +395,4 @@
   - `uv run pytest tests/render/test_render_init.py tests/mcp/test_server.py -q` -> 84 passed
   - `uv run task precommit-run` -> ruff / ruff-format / mypy passed
 - Residual risks:
-  - Codacy の PR issue 一覧はリモート再解析完了まで旧結果を返す可能性がある。
+  - なし（Codacy PR scope `total=0` を確認済み）。
