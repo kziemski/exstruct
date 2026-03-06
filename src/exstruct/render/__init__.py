@@ -869,12 +869,12 @@ def _run_render_worker_subprocess(
 def _start_render_worker_process(request_path: Path) -> _WorkerProcessProtocol:
     """Spawn standalone worker process."""
     try:
-        # nosemgrep
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit.dangerous-subprocess-use-audit
         # Safe by construction: worker module and argv structure are fixed,
         # `request_path` is created by this process under TemporaryDirectory.
         return cast(
             _WorkerProcessProtocol,
-            subprocess.Popen(  # nosec B603
+            subprocess.Popen(  # nosec B603  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit.dangerous-subprocess-use-audit
                 [
                     sys.executable,
                     "-m",

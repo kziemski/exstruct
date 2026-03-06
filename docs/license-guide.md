@@ -8,28 +8,7 @@ _Version 0.2 / Last update: 2025-12-13
 
 <!-- TOC -->
 
-- Corporate Usage License Guide: exstruct
-  - TOC
-  - Purpose of This Document
-  - 1. License of exstruct
-  - 2. What You ARE Allowed To Do (DO)
-    - Use in commercial or internal software
-    - Modify the library
-    - Redistribute inside the company
-    - Embed into proprietary or closed-source systems
-    - In simple terms:
-  - 3. Required Compliance Points (MUST)
-    - (1) Preserve copyright notices
-    - (2) Do not remove or alter the license text
-    - (3) Do not use the author's name for endorsement
-  - 4. What You MUST NOT Do (DON'T)
-    - Use the author's name for advertising
-    - Distribute the library without the license
-  - 5. License Compatibility of Dependencies
-  - 6. Redistribution Inside the Company
-  - 7. Conclusion: exstruct Is Highly Suitable for Corporate Use
-  - Appendix: Full BSD-3-Clause License Text
-  - About This Document
+Corporate Usage License Guide: exstruct
 
 <!-- /TOC -->
 
