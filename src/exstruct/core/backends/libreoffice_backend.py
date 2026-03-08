@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+import logging
 import math
 from pathlib import Path
 
@@ -15,6 +16,8 @@ from ..libreoffice import (
 from ..ooxml_drawing import OoxmlConnectorInfo, OoxmlShapeInfo, read_sheet_drawings
 from ..shapes import angle_to_compass, compute_line_angle_deg
 from .base import ChartData, RichBackend, ShapeData
+
+logger = logging.getLogger(__name__)
 
 
 class LibreOfficeRichBackend(RichBackend):
@@ -58,6 +61,17 @@ class LibreOfficeRichBackend(RichBackend):
             drawing = drawings.get(sheet_name)
             snapshots = draw_page_shapes.get(sheet_name, [])
             if snapshots:
+                _log_unmatched_ooxml_candidates(
+                    sheet_name=sheet_name,
+                    snapshots=snapshots,
+                    drawing_shapes=drawing.shapes if drawing is not None else [],
+                    drawing_connectors=drawing.connectors
+                    if drawing is not None
+                    else [],
+                )
+                # UNO draw-page snapshots define the canonical emitted order for v1.
+                # Unmatched OOXML-only shapes/connectors remain supplemental metadata
+                # and are intentionally not appended to the emitted list.
                 shape_data[sheet_name] = _build_shapes_from_draw_page(
                     snapshots,
                     drawing_shapes=drawing.shapes if drawing is not None else [],
@@ -394,6 +408,38 @@ def _build_shapes_from_draw_page(
             )
         )
     return emitted
+
+
+def _log_unmatched_ooxml_candidates(
+    *,
+    sheet_name: str,
+    snapshots: Sequence[LibreOfficeDrawPageShape],
+    drawing_shapes: Sequence[OoxmlShapeInfo],
+    drawing_connectors: Sequence[OoxmlConnectorInfo],
+) -> None:
+    """Emit a debug log when snapshot-backed sheets drop OOXML-only candidates."""
+
+    snapshot_shapes = [snapshot for snapshot in snapshots if not snapshot.is_connector]
+    snapshot_connectors = [snapshot for snapshot in snapshots if snapshot.is_connector]
+    unmatched_shape_count = len(drawing_shapes) - sum(
+        shape_info is not None
+        for shape_info in _match_shape_infos(snapshot_shapes, drawing_shapes)
+    )
+    unmatched_connector_count = len(drawing_connectors) - sum(
+        connector_info is not None
+        for connector_info in _match_connector_infos(
+            snapshot_connectors, drawing_connectors
+        )
+    )
+    if unmatched_shape_count <= 0 and unmatched_connector_count <= 0:
+        return
+    logger.debug(
+        "Skipping %d OOXML-only shapes and %d OOXML-only connectors on sheet %s "
+        "because UNO draw-page snapshots define the canonical emitted order.",
+        unmatched_shape_count,
+        unmatched_connector_count,
+        sheet_name,
+    )
 
 
 def _resolve_connector(

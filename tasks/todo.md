@@ -59,17 +59,23 @@
 
 ### 2026-03-08 Follow-up Planning
 
-- [ ] `_reserve_tcp_port()` race hardening を実装する
-- [ ] startup attempt 内の bounded retry contract を code / spec / tests に反映する
-- [ ] port collision を模した retry success / retry exhausted regression tests を追加する
-- [ ] draw-page snapshot あり sheet で unmatched OOXML shape / connector を append しない contract test を追加する
-- [ ] unmatched OOXML 件数の debug logging を入れるか別タスクとして判断する
+- [x] `_reserve_tcp_port()` race hardening を実装する
+- [x] startup attempt 内の bounded retry contract を code / spec / tests に反映する
+- [x] port collision を模した retry success / retry exhausted regression tests を追加する
+- [x] draw-page snapshot あり sheet で unmatched OOXML shape / connector を append しない contract test を追加する
+- [x] unmatched OOXML 件数の debug logging を追加する
 
 ### 2026-03-08 Follow-up Review
 
 - `_reserve_tcp_port()` は hold-open reservation ではなく retry-based hardening で扱う
 - OOXML-only append は v1 非対応とし、UNO canonical order を崩さない contract を固定する
 - append を見送る代わりに、必要なら unmatched 件数の観測だけ別タスクで扱う
+- `src/exstruct/core/backends/libreoffice_backend.py` で snapshot あり sheet の unmatched OOXML shape / connector 件数を `debug` logging するようにし、emit contract は変えずに観測だけ追加した
+- 2026-03-08 follow-up implementation:
+  - `src/exstruct/core/libreoffice.py` に startup strategy 内の bounded retry (`3` 回、short backoff) を追加し、失敗のたびに新しい port で `soffice` を起動し直すようにした
+  - retry failure は `attempt N/3` 形式で集約し、strategy 間の failure aggregation と合わせて最終エラー文言に残すようにした
+  - `tests/core/test_libreoffice_backend.py` に retry-within-strategy / retry-exhausted-to-shared-profile / aggregated-failure-detail の regression test を追加した
+  - snapshot あり sheet では OOXML-only shape / connector を append しない contract test を追加し、v1 の emit 順序を固定した
 
 ## 2026-03-06 Backend Metadata Output Follow-up
 

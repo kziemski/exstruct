@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 import json
 import math
@@ -18,6 +19,8 @@ from typing import Literal, TextIO, cast
 _DEFAULT_STARTUP_TIMEOUT_SEC = 15.0
 _DEFAULT_EXEC_TIMEOUT_SEC = 30.0
 _DEFAULT_PYTHON_PROBE_TIMEOUT_SEC = 5.0
+_STARTUP_PORT_RETRY_LIMIT = 3
+_STARTUP_PORT_RETRY_BACKOFF_SEC = 0.1
 
 
 class LibreOfficeUnavailableError(RuntimeError):
@@ -372,81 +375,106 @@ def _start_soffice_startup_attempt(
     temp_profile_dir = (
         _create_temp_profile_dir(profile_root) if attempt.use_temp_profile else None
     )
-    port = _reserve_tcp_port()
-    process: subprocess.Popen[str] | None = None
-    stderr_sink: TextIO | None = None
-    stderr_path: Path | None = None
-    try:
-        stderr_sink, stderr_path = _create_stderr_sink()
-        process = subprocess.Popen(
-            _build_soffice_startup_command(
-                soffice_path=soffice_path,
-                port=port,
-                temp_profile_dir=temp_profile_dir,
-            ),
-            stdout=subprocess.DEVNULL,
-            stderr=stderr_sink,
-            text=True,
-        )
-        _wait_for_socket(
-            host="127.0.0.1",
-            port=port,
-            timeout_sec=startup_timeout_sec,
-            process=process,
-        )
-    except FileNotFoundError as exc:
-        _cleanup_failed_startup_attempt(
-            process=process,
-            temp_profile_dir=temp_profile_dir,
-            stderr_sink=stderr_sink,
-            stderr_path=stderr_path,
-        )
-        raise _LibreOfficeStartupAttemptError(
-            _LibreOfficeStartupFailure(
-                attempt_name=attempt.name,
-                message=f"'{soffice_path}' could not be executed.",
-            )
-        ) from exc
-    except OSError as exc:
-        detail = _cleanup_failed_startup_attempt(
-            process=process,
-            temp_profile_dir=temp_profile_dir,
-            stderr_sink=stderr_sink,
-            stderr_path=stderr_path,
-        )
-        raise _LibreOfficeStartupAttemptError(
-            _LibreOfficeStartupFailure(
-                attempt_name=attempt.name,
-                message=_append_startup_detail(
-                    f"soffice startup could not be launched ({exc.__class__.__name__}: {exc}).",
-                    detail,
+    failure_messages: list[str] = []
+    for startup_index in range(1, _STARTUP_PORT_RETRY_LIMIT + 1):
+        port = _reserve_tcp_port()
+        process: subprocess.Popen[str] | None = None
+        stderr_sink: TextIO | None = None
+        stderr_path: Path | None = None
+        try:
+            stderr_sink, stderr_path = _create_stderr_sink()
+            process = subprocess.Popen(
+                _build_soffice_startup_command(
+                    soffice_path=soffice_path,
+                    port=port,
+                    temp_profile_dir=temp_profile_dir,
                 ),
+                stdout=subprocess.DEVNULL,
+                stderr=stderr_sink,
+                text=True,
             )
-        ) from exc
-    except LibreOfficeUnavailableError as exc:
-        detail = _cleanup_failed_startup_attempt(
-            process=process,
-            temp_profile_dir=temp_profile_dir,
-            stderr_sink=stderr_sink,
-            stderr_path=stderr_path,
-        )
-        raise _LibreOfficeStartupAttemptError(
-            _LibreOfficeStartupFailure(
-                attempt_name=attempt.name,
-                message=_append_startup_detail(
+            _wait_for_socket(
+                host="127.0.0.1",
+                port=port,
+                timeout_sec=startup_timeout_sec,
+                process=process,
+            )
+        except FileNotFoundError as exc:
+            detail = _cleanup_failed_startup_process(
+                process=process,
+                stderr_sink=stderr_sink,
+                stderr_path=stderr_path,
+            )
+            if temp_profile_dir is not None:
+                _cleanup_profile_dir(temp_profile_dir)
+            raise _LibreOfficeStartupAttemptError(
+                _LibreOfficeStartupFailure(
+                    attempt_name=attempt.name,
+                    message=_append_startup_detail(
+                        f"'{soffice_path}' could not be executed.",
+                        detail,
+                    ),
+                )
+            ) from exc
+        except OSError as exc:
+            detail = _cleanup_failed_startup_process(
+                process=process,
+                stderr_sink=stderr_sink,
+                stderr_path=stderr_path,
+            )
+            if temp_profile_dir is not None:
+                _cleanup_profile_dir(temp_profile_dir)
+            raise _LibreOfficeStartupAttemptError(
+                _LibreOfficeStartupFailure(
+                    attempt_name=attempt.name,
+                    message=_append_startup_detail(
+                        f"soffice startup could not be launched ({exc.__class__.__name__}: {exc}).",
+                        detail,
+                    ),
+                )
+            ) from exc
+        except LibreOfficeUnavailableError as exc:
+            detail = _cleanup_failed_startup_process(
+                process=process,
+                stderr_sink=stderr_sink,
+                stderr_path=stderr_path,
+            )
+            failure_messages.append(
+                _append_startup_detail(
                     _strip_runtime_unavailable_prefix(str(exc)),
                     detail,
-                ),
+                )
             )
-        ) from exc
-    if process is None:
-        raise RuntimeError("LibreOffice startup attempt did not create a process.")
-    return _LibreOfficeStartupSuccess(
-        process=process,
-        port=port,
-        temp_profile_dir=temp_profile_dir,
-        stderr_sink=stderr_sink,
-        stderr_path=stderr_path,
+            if (
+                startup_index >= _STARTUP_PORT_RETRY_LIMIT
+                or not _should_retry_startup_failure(failure_messages[-1])
+            ):
+                if temp_profile_dir is not None:
+                    _cleanup_profile_dir(temp_profile_dir)
+                raise _LibreOfficeStartupAttemptError(
+                    _LibreOfficeStartupFailure(
+                        attempt_name=attempt.name,
+                        message=_format_startup_retry_failures(failure_messages),
+                    )
+                ) from exc
+            time.sleep(_STARTUP_PORT_RETRY_BACKOFF_SEC)
+            continue
+        if process is None:
+            raise RuntimeError("LibreOffice startup attempt did not create a process.")
+        return _LibreOfficeStartupSuccess(
+            process=process,
+            port=port,
+            temp_profile_dir=temp_profile_dir,
+            stderr_sink=stderr_sink,
+            stderr_path=stderr_path,
+        )
+    if temp_profile_dir is not None:
+        _cleanup_profile_dir(temp_profile_dir)
+    raise _LibreOfficeStartupAttemptError(
+        _LibreOfficeStartupFailure(
+            attempt_name=attempt.name,
+            message=_format_startup_retry_failures(failure_messages),
+        )
     )
 
 
@@ -483,14 +511,13 @@ def _build_soffice_startup_command(
     return args
 
 
-def _cleanup_failed_startup_attempt(
+def _cleanup_failed_startup_process(
     *,
     process: subprocess.Popen[str] | None,
-    temp_profile_dir: Path | None,
     stderr_sink: TextIO | None,
     stderr_path: Path | None,
 ) -> str | None:
-    """Terminate a failed startup attempt and return a bounded stderr detail."""
+    """Terminate a failed startup process and return a bounded stderr detail."""
 
     detail: str | None = None
     if process is not None:
@@ -500,8 +527,6 @@ def _cleanup_failed_startup_attempt(
             stderr_sink=stderr_sink,
         )
     _close_stderr_sink(stderr_sink, stderr_path)
-    if temp_profile_dir is not None:
-        _cleanup_profile_dir(temp_profile_dir)
     return detail
 
 
@@ -581,6 +606,34 @@ def _append_startup_detail(message: str, detail: str | None) -> str:
     if detail is None:
         return message
     return f"{message} {detail}"
+
+
+def _should_retry_startup_failure(message: str) -> bool:
+    """Return True when a startup failure looks consistent with port contention."""
+
+    lowered = message.lower()
+    retryable_markers = (
+        "soffice socket startup timed out.",
+        "soffice exited during startup.",
+        "address already in use",
+        "already in use",
+        "failed to bind",
+        "cannot bind",
+        "could not bind",
+        "listen",
+    )
+    return any(marker in lowered for marker in retryable_markers)
+
+
+def _format_startup_retry_failures(failure_messages: Sequence[str]) -> str:
+    """Render numbered startup failures captured within one strategy."""
+
+    if not failure_messages:
+        return "soffice startup failed."
+    return "; ".join(
+        f"attempt {index}/{_STARTUP_PORT_RETRY_LIMIT}: {message}"
+        for index, message in enumerate(failure_messages, start=1)
+    )
 
 
 def _strip_runtime_unavailable_prefix(message: str) -> str:
@@ -703,7 +756,7 @@ def _probe_libreoffice_bridge_failure(python_path: Path) -> str | None:
 
 
 def _reserve_tcp_port() -> int:
-    """Reserve an ephemeral localhost TCP port for the UNO socket."""
+    """Return an ephemeral localhost TCP port candidate for the UNO socket."""
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))

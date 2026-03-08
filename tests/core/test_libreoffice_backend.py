@@ -392,6 +392,173 @@ def test_libreoffice_backend_prefers_ooxml_refs_over_uno_direct_refs(
     assert connector.confidence == 1.0
 
 
+def test_libreoffice_backend_ignores_unmatched_ooxml_when_draw_page_exists(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Verify that snapshot-backed sheets do not append OOXML-only items in v1."""
+
+    payload = {
+        "Sheet1": [
+            LibreOfficeDrawPageShape(
+                name="Start",
+                shape_type="com.sun.star.drawing.CustomShape",
+                text="S",
+                left=10,
+                top=20,
+                width=30,
+                height=40,
+            )
+        ]
+    }
+    monkeypatch.setattr(
+        "exstruct.core.backends.libreoffice_backend.read_sheet_drawings",
+        lambda _path: {
+            "Sheet1": SheetDrawingData(
+                shapes=[
+                    OoxmlShapeInfo(
+                        ref=DrawingShapeRef(
+                            drawing_id=10,
+                            name="Start",
+                            kind="shape",
+                            left=10,
+                            top=20,
+                            width=30,
+                            height=40,
+                        ),
+                        text="S",
+                        shape_type="rect",
+                    ),
+                    OoxmlShapeInfo(
+                        ref=DrawingShapeRef(
+                            drawing_id=20,
+                            name="OOXML-only",
+                            kind="shape",
+                            left=100,
+                            top=120,
+                            width=30,
+                            height=40,
+                        ),
+                        text="extra",
+                        shape_type="ellipse",
+                    ),
+                ],
+                connectors=[
+                    OoxmlConnectorInfo(
+                        ref=DrawingShapeRef(
+                            drawing_id=30,
+                            name="Connector",
+                            kind="connector",
+                            left=40,
+                            top=30,
+                            width=50,
+                            height=60,
+                        ),
+                        connection=DrawingConnectorRef(
+                            drawing_id=30,
+                            start_drawing_id=10,
+                            end_drawing_id=20,
+                        ),
+                    )
+                ],
+            )
+        },
+    )
+    backend = LibreOfficeRichBackend(
+        Path("sample/flowchart/sample-shape-connector.xlsx"),
+        session_factory=lambda: cast(LibreOfficeSession, _DrawPageSession(payload)),
+    )
+
+    items = backend.extract_shapes(mode="libreoffice")["Sheet1"]
+
+    assert len(items) == 1
+    shape = cast(Shape, items[0])
+    assert shape.kind == "shape"
+    assert shape.id == 1
+    assert shape.text == "S"
+    assert shape.type == "rect"
+
+
+def test_libreoffice_backend_logs_unmatched_ooxml_when_draw_page_exists(
+    monkeypatch: MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Verify that snapshot-backed sheets log dropped OOXML-only candidate counts."""
+
+    payload = {
+        "Sheet1": [
+            LibreOfficeDrawPageShape(
+                name="Start",
+                shape_type="com.sun.star.drawing.CustomShape",
+                text="S",
+                left=10,
+                top=20,
+                width=30,
+                height=40,
+            )
+        ]
+    }
+    monkeypatch.setattr(
+        "exstruct.core.backends.libreoffice_backend.read_sheet_drawings",
+        lambda _path: {
+            "Sheet1": SheetDrawingData(
+                shapes=[
+                    OoxmlShapeInfo(
+                        ref=DrawingShapeRef(
+                            drawing_id=10,
+                            name="Start",
+                            kind="shape",
+                            left=10,
+                            top=20,
+                            width=30,
+                            height=40,
+                        )
+                    ),
+                    OoxmlShapeInfo(
+                        ref=DrawingShapeRef(
+                            drawing_id=20,
+                            name="OOXML-only",
+                            kind="shape",
+                            left=100,
+                            top=120,
+                            width=30,
+                            height=40,
+                        )
+                    ),
+                ],
+                connectors=[
+                    OoxmlConnectorInfo(
+                        ref=DrawingShapeRef(
+                            drawing_id=30,
+                            name="Connector",
+                            kind="connector",
+                            left=40,
+                            top=30,
+                            width=50,
+                            height=60,
+                        ),
+                        connection=DrawingConnectorRef(
+                            drawing_id=30,
+                            start_drawing_id=10,
+                            end_drawing_id=20,
+                        ),
+                    )
+                ],
+            )
+        },
+    )
+    backend = LibreOfficeRichBackend(
+        Path("sample/flowchart/sample-shape-connector.xlsx"),
+        session_factory=lambda: cast(LibreOfficeSession, _DrawPageSession(payload)),
+    )
+
+    with caplog.at_level("DEBUG", logger="exstruct.core.backends.libreoffice_backend"):
+        backend.extract_shapes(mode="libreoffice")
+
+    assert (
+        "Skipping 1 OOXML-only shapes and 1 OOXML-only connectors on sheet Sheet1"
+        in caplog.text
+    )
+
+
 def test_ooxml_connector_tail_end_maps_to_begin_arrow_style() -> None:
     """Verify that OOXML connector tail end maps to begin arrow style."""
 
@@ -778,18 +945,19 @@ def test_libreoffice_session_enters_with_isolated_profile(
     assert cleaned_paths == [created_dir]
 
 
-def test_libreoffice_session_retries_without_temp_profile_after_startup_failure(
+def test_libreoffice_session_retries_port_within_startup_attempt(
     tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
-    """Verify that shared-profile retry runs after isolated startup failure."""
+    """Verify that one startup strategy retries with a fresh port before fallback."""
 
     cleaned_paths: list[Path] = []
     created_dir = tmp_path / "lo-profile"
     soffice_path = tmp_path / "soffice.exe"
     python_path = tmp_path / "python.exe"
-    first_process = _FakeLibreOfficeProcess(stderr="javaldx failed!")
+    first_process = _FakeLibreOfficeProcess(stderr="Address already in use")
     second_process = _FakeLibreOfficeProcess()
     spawned: list[_FakeLibreOfficeProcess] = []
+    reserved_ports = [42001, 42002]
     soffice_path.write_text("", encoding="utf-8")
     python_path.write_text("", encoding="utf-8")
 
@@ -824,6 +992,119 @@ def test_libreoffice_session_retries_without_temp_profile_after_startup_failure(
         _ = timeout_sec
         if process is first_process:
             raise LibreOfficeUnavailableError(
+                "LibreOffice runtime is unavailable: soffice exited during startup."
+            )
+
+    monkeypatch.setattr(
+        "exstruct.core.libreoffice.mkdtemp",
+        cast(Callable[..., str], _fake_mkdtemp),
+    )
+    monkeypatch.setattr("exstruct.core.libreoffice.subprocess.run", _fake_run)
+    monkeypatch.setattr("exstruct.core.libreoffice.subprocess.Popen", _fake_popen)
+    monkeypatch.setattr(
+        "exstruct.core.libreoffice._wait_for_socket",
+        _fake_wait_for_socket,
+    )
+    monkeypatch.setattr(
+        "exstruct.core.libreoffice._reserve_tcp_port",
+        lambda: reserved_ports.pop(0),
+    )
+    monkeypatch.setattr(
+        "exstruct.core.libreoffice._cleanup_profile_dir",
+        lambda path: cleaned_paths.append(path),
+    )
+    monkeypatch.setattr(
+        "exstruct.core.libreoffice._resolve_python_path",
+        lambda _path: python_path,
+    )
+
+    session = LibreOfficeSession(
+        LibreOfficeSessionConfig(
+            soffice_path=soffice_path,
+            startup_timeout_sec=1.0,
+            exec_timeout_sec=1.0,
+            profile_root=None,
+        )
+    )
+
+    session.__enter__()
+
+    assert spawned == [first_process, second_process]
+    assert first_process.terminate_called is True
+    assert all(
+        arg.startswith("--accept=socket,host=127.0.0.1,port=42001")
+        for arg in first_process.args
+        if arg.startswith("--accept=")
+    )
+    assert all(
+        arg.startswith("--accept=socket,host=127.0.0.1,port=42002")
+        for arg in second_process.args
+        if arg.startswith("--accept=")
+    )
+    assert any(arg.startswith("-env:UserInstallation=") for arg in first_process.args)
+    assert any(arg.startswith("-env:UserInstallation=") for arg in second_process.args)
+    assert session._temp_profile_dir == created_dir
+    assert cast(object, session._soffice_process) is second_process
+
+    session.__exit__(None, None, None)
+
+    assert second_process.terminate_called is True
+    assert cleaned_paths == [created_dir]
+
+
+def test_libreoffice_session_retries_without_temp_profile_after_startup_failure(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    """Verify that shared-profile retry runs after isolated startup failure."""
+
+    cleaned_paths: list[Path] = []
+    created_dir = tmp_path / "lo-profile"
+    soffice_path = tmp_path / "soffice.exe"
+    python_path = tmp_path / "python.exe"
+    first_process = _FakeLibreOfficeProcess(stderr="javaldx failed!")
+    second_process = _FakeLibreOfficeProcess(stderr="javaldx failed!")
+    third_process = _FakeLibreOfficeProcess(stderr="javaldx failed!")
+    fourth_process = _FakeLibreOfficeProcess()
+    spawned: list[_FakeLibreOfficeProcess] = []
+    soffice_path.write_text("", encoding="utf-8")
+    python_path.write_text("", encoding="utf-8")
+
+    def _fake_mkdtemp(*, prefix: str, **kwargs: object) -> str:
+        _ = prefix
+        _ = kwargs
+        created_dir.mkdir(parents=True, exist_ok=True)
+        return str(created_dir)
+
+    def _fake_run(
+        args: list[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=args, returncode=0, stdout="", stderr=""
+        )
+
+    def _fake_popen(args: list[str], **_kwargs: object) -> _FakeLibreOfficeProcess:
+        process = (
+            first_process,
+            second_process,
+            third_process,
+            fourth_process,
+        )[len(spawned)]
+        process.args = list(args)
+        spawned.append(process)
+        return process
+
+    def _fake_wait_for_socket(
+        *,
+        host: str,
+        port: int,
+        timeout_sec: float,
+        process: object,
+    ) -> None:
+        _ = host
+        _ = port
+        _ = timeout_sec
+        if process in (first_process, second_process, third_process):
+            raise LibreOfficeUnavailableError(
                 "LibreOffice runtime is unavailable: soffice socket startup timed out."
             )
 
@@ -857,19 +1138,23 @@ def test_libreoffice_session_retries_without_temp_profile_after_startup_failure(
 
     session.__enter__()
 
-    assert spawned == [first_process, second_process]
+    assert spawned == [first_process, second_process, third_process, fourth_process]
     assert first_process.terminate_called is True
+    assert second_process.terminate_called is True
+    assert third_process.terminate_called is True
     assert cleaned_paths == [created_dir]
     assert any(arg.startswith("-env:UserInstallation=") for arg in first_process.args)
+    assert any(arg.startswith("-env:UserInstallation=") for arg in second_process.args)
+    assert any(arg.startswith("-env:UserInstallation=") for arg in third_process.args)
     assert all(
-        not arg.startswith("-env:UserInstallation=") for arg in second_process.args
+        not arg.startswith("-env:UserInstallation=") for arg in fourth_process.args
     )
     assert session._temp_profile_dir is None
-    assert cast(object, session._soffice_process) is second_process
+    assert cast(object, session._soffice_process) is fourth_process
 
     session.__exit__(None, None, None)
 
-    assert second_process.terminate_called is True
+    assert fourth_process.terminate_called is True
 
 
 def test_libreoffice_session_reports_both_startup_attempt_failures(
@@ -882,7 +1167,17 @@ def test_libreoffice_session_reports_both_startup_attempt_failures(
     soffice_path = tmp_path / "soffice.exe"
     python_path = tmp_path / "python.exe"
     first_process = _FakeLibreOfficeProcess(stderr="javaldx failed!")
-    second_process = _FakeLibreOfficeProcess(
+    second_process = _FakeLibreOfficeProcess(stderr="javaldx failed!")
+    third_process = _FakeLibreOfficeProcess(stderr="javaldx failed!")
+    fourth_process = _FakeLibreOfficeProcess(
+        stderr="User installation could not be completed.",
+        returncode=1,
+    )
+    fifth_process = _FakeLibreOfficeProcess(
+        stderr="User installation could not be completed.",
+        returncode=1,
+    )
+    sixth_process = _FakeLibreOfficeProcess(
         stderr="User installation could not be completed.",
         returncode=1,
     )
@@ -904,7 +1199,14 @@ def test_libreoffice_session_reports_both_startup_attempt_failures(
         )
 
     def _fake_popen(args: list[str], **_kwargs: object) -> _FakeLibreOfficeProcess:
-        process = (first_process, second_process)[len(spawned)]
+        process = (
+            first_process,
+            second_process,
+            third_process,
+            fourth_process,
+            fifth_process,
+            sixth_process,
+        )[len(spawned)]
         process.args = list(args)
         spawned.append(process)
         return process
@@ -919,7 +1221,7 @@ def test_libreoffice_session_reports_both_startup_attempt_failures(
         _ = host
         _ = port
         _ = timeout_sec
-        if process is first_process:
+        if process in (first_process, second_process, third_process):
             raise LibreOfficeUnavailableError(
                 "LibreOffice runtime is unavailable: soffice socket startup timed out."
             )
@@ -959,9 +1261,11 @@ def test_libreoffice_session_reports_both_startup_attempt_failures(
         session.__enter__()
 
     message = str(excinfo.value)
-    assert "isolated-profile: soffice socket startup timed out." in message
+    assert "isolated-profile: attempt 1/3: soffice socket startup timed out." in message
+    assert "attempt 3/3: soffice socket startup timed out." in message
     assert "stderr=javaldx failed!" in message
-    assert "shared-profile: soffice exited during startup." in message
+    assert "shared-profile: attempt 1/3: soffice exited during startup." in message
+    assert "attempt 3/3: soffice exited during startup." in message
     assert "stderr=User installation could not be completed." in message
     assert cleaned_paths == [created_dir]
     assert session._soffice_process is None

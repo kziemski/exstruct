@@ -67,8 +67,8 @@
     - `provenance` に OOXML-only を表す public contract を追加せずに済む
   - verification:
     - snapshot あり + unmatched OOXML shape/connector が emit されない unit test
-  - optional future:
-    - append ではなく unmatched 件数の debug logging / metrics を追加する余地は残す
+  - observability:
+    - append ではなく unmatched 件数を debug logging し、snapshot-backed emit contract を変えずに観測できるようにする
 
 ### Out of scope for this follow-up
 
