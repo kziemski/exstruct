@@ -78,6 +78,9 @@ def _has_pillow() -> bool:
 def _has_libreoffice_runtime() -> bool:
     """Return True if a runnable LibreOffice executable is available."""
     libreoffice_module = _load_libreoffice_runtime_module()
+    unavailable_error: type[BaseException] = (
+        libreoffice_module.LibreOfficeUnavailableError
+    )
     raw_path = os.getenv("EXSTRUCT_LIBREOFFICE_PATH")
     which_soffice = libreoffice_module._which_soffice
     resolve_python_path = libreoffice_module._resolve_python_path
@@ -86,7 +89,7 @@ def _has_libreoffice_runtime() -> bool:
         return False
     try:
         python_path = resolve_python_path(soffice_path)
-    except Exception:
+    except (unavailable_error, OSError):
         return False
     if not isinstance(python_path, Path) or not python_path.exists():
         return False
@@ -98,7 +101,12 @@ def _has_libreoffice_runtime() -> bool:
             text=True,
             timeout=5.0,
         )
-    except Exception:
+    except (
+        FileNotFoundError,
+        OSError,
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+    ):
         return False
     return True
 

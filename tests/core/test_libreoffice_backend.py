@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 from typing import cast
 from xml.etree import ElementTree
+from zipfile import ZipFile
 
 from _pytest.monkeypatch import MonkeyPatch
 import pytest
@@ -31,7 +32,9 @@ from exstruct.core.ooxml_drawing import (
     OoxmlShapeInfo,
     SheetDrawingData,
     _extract_chart_series,
+    _merge_anchor_geometry,
     _parse_connector_node,
+    _read_relationships,
     read_sheet_drawings,
 )
 from exstruct.models import Arrow, Shape
@@ -783,6 +786,53 @@ def test_read_sheet_drawings_uses_anchor_fallback_for_chart_geometry() -> None:
     assert chart.anchor_height is not None and chart.anchor_height > 0
 
 
+def test_read_relationships_keeps_type_metadata() -> None:
+    """Verify that OOXML relationship parsing preserves relationship types."""
+
+    with ZipFile(Path("sample/basic/sample.xlsx")) as archive:
+        relationships = _read_relationships(
+            archive,
+            "xl/drawings/_rels/drawing1.xml.rels",
+        )
+
+    assert any(
+        relationship.relationship_type.endswith("/chart")
+        and relationship.target.startswith("xl/charts/")
+        for relationship in relationships.values()
+    )
+
+
+def test_merge_anchor_geometry_prefers_parent_anchor_for_left_top() -> None:
+    """Verify that anchor placement wins over child-transform offsets."""
+
+    anchor = ElementTree.fromstring(
+        """
+        <xdr:oneCellAnchor xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">
+          <xdr:from>
+            <xdr:col>2</xdr:col>
+            <xdr:colOff>0</xdr:colOff>
+            <xdr:row>3</xdr:row>
+            <xdr:rowOff>0</xdr:rowOff>
+          </xdr:from>
+          <xdr:ext cx="127000" cy="254000" />
+        </xdr:oneCellAnchor>
+        """
+    )
+
+    left, top, width, height = _merge_anchor_geometry(
+        anchor,
+        left=999,
+        top=777,
+        width=10,
+        height=20,
+    )
+
+    assert left == 96
+    assert top == 45
+    assert width == 10
+    assert height == 20
+
+
 def test_extract_chart_series_supports_scatter_xval_yval() -> None:
     """Verify that scatter/bubble series use xVal/yVal references when present."""
 
@@ -1399,6 +1449,38 @@ def test_python_supports_libreoffice_bridge_uses_probe_command(
     assert calls[0][0] == str(python_path)
     assert calls[0][1].endswith("_libreoffice_bridge.py")
     assert calls[0][2] == "--probe"
+
+
+def test_python_supports_libreoffice_bridge_filters_env(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    """Verify that bridge probes pass a bounded inherited environment."""
+
+    python_path = tmp_path / "python3"
+    python_path.write_text("", encoding="utf-8")
+    captured_env: dict[str, str] = {}
+
+    def _fake_run(
+        args: list[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        """Capture subprocess environment for the bridge probe."""
+
+        _ = args
+        env = kwargs.get("env")
+        if isinstance(env, dict):
+            captured_env.update(env)
+        return subprocess.CompletedProcess(
+            args=args, returncode=0, stdout="", stderr=""
+        )
+
+    monkeypatch.setenv("UNSAFE_TEST_ENV", "secret")
+    monkeypatch.setenv("PATH", "test-path")
+    monkeypatch.setattr("exstruct.core.libreoffice.subprocess.run", _fake_run)
+
+    assert _python_supports_libreoffice_bridge(python_path) is True
+    assert captured_env["PYTHONIOENCODING"] == "utf-8"
+    assert captured_env["PATH"] == "test-path"
+    assert "UNSAFE_TEST_ENV" not in captured_env
 
 
 def test_resolve_python_path_rejects_system_python_when_bridge_probe_fails(

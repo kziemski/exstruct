@@ -7,13 +7,13 @@
 - [x] 最新 GitHub Actions run / Codacy / review thread を再収集する
 - [x] blocking issue と minor nit を切り分ける
 - [x] `tasks/feature_spec.md` に post-push follow-up contract を追記する
-- [ ] `ExStructEngine.process(...)` が engine-level `extract(...)` seam を bypass しないように修正する
-- [ ] `tests/engine/test_engine.py::test_engine_process_normalizes_string_paths` の回帰を再現・固定する
-- [ ] `_read_relationships(...)` を typed relationship へ変更し、call site を relationship type 判定に切り替える
-- [ ] `tests/conftest.py` の LibreOffice runtime probe で broad `except Exception` をやめ、unexpected regression を surfacing する
-- [ ] `docs/api.md` の CLI 対応例に `--include-backend-metadata` を反映する
-- [ ] `_merge_anchor_geometry(...)` を anchor-first placement に揃え、位置マッチング回帰 test を追加する
-- [ ] `src/exstruct/core/libreoffice.py` の subprocess 呼び出しを trust-boundary 明示付き helper / suppression 方針で整理し、Codacy blocking issue を解消する
+- [x] `ExStructEngine.process(...)` が engine-level `extract(...)` seam を bypass しないように修正する
+- [x] `tests/engine/test_engine.py::test_engine_process_normalizes_string_paths` の回帰を再現・固定する
+- [x] `_read_relationships(...)` を typed relationship へ変更し、call site を relationship type 判定に切り替える
+- [x] `tests/conftest.py` の LibreOffice runtime probe で broad `except Exception` をやめ、unexpected regression を surfacing する
+- [x] `docs/api.md` の CLI 対応例に `--include-backend-metadata` を反映する
+- [x] `_merge_anchor_geometry(...)` を anchor-first placement に揃え、位置マッチング回帰 test を追加する
+- [x] `src/exstruct/core/libreoffice.py` の subprocess 呼び出しを trust-boundary 明示付き helper / suppression 方針で整理し、Codacy blocking issue を解消する
 
 ### Review
 
@@ -35,6 +35,15 @@
 - 今回 scope 外に置く項目
   - `pytest.MonkeyPatch` への import cleanup
   - `_start_soffice_startup_attempt(...)` の readability-only helper 分割
+- 2026-03-08 実装・検証
+  - `process()` は validation 後に engine-level `extract(...)` seam を通すよう修正し、string path 回帰 test を維持した
+  - `_read_relationships(...)` は `Type` を保持する typed metadata へ変更し、sheet / drawing / chart 解決を relationship type 判定に切り替えた
+  - `tests/conftest.py` は expected な unavailable failure だけを skip 扱いにし、unexpected probe regression は例外として surface させた
+  - `docs/api.md` の CLI 相当例に `--include-backend-metadata` を反映した
+  - `_merge_anchor_geometry(...)` は left/top を anchor-first に寄せ、回帰 test を追加した
+  - LibreOffice subprocess は allowlist 環境変数と正規化済み executable/path helper を経由させ、bridge probe/env の回帰 test を追加した
+  - `uv run pytest tests/engine/test_engine.py tests/test_conftest_libreoffice_runtime.py tests/core/test_libreoffice_backend.py -q` -> `44 passed`
+  - `uv run task precommit-run` -> `ruff / ruff-format / mypy passed`
 
 ## 2026-03-08 PR #76 triage
 

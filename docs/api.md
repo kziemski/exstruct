@@ -71,7 +71,7 @@ process_excel(
     mode="standard",
     pretty=True,
 )
-# Same as: exstruct input.xlsx --format json --pdf --image --mode standard --pretty --sheets-dir out_sheets > out.json
+# Same as: exstruct input.xlsx --format json --include-backend-metadata --pdf --image --mode standard --pretty --sheets-dir out_sheets > out.json
 ```
 
 ## Dependencies

@@ -247,6 +247,23 @@ class ExStructEngine:
         finally:
             set_table_detection_params(**prev)
 
+    @contextmanager
+    def _process_extract_scope(
+        self,
+        *,
+        auto_page_breaks_dir: Path | None,
+    ) -> Iterator[None]:
+        """Temporarily apply process-time extraction overrides to engine defaults."""
+
+        previous_auto_page_breaks_dir = self.output.destinations.auto_page_breaks_dir
+        self.output.destinations.auto_page_breaks_dir = auto_page_breaks_dir
+        try:
+            yield
+        finally:
+            self.output.destinations.auto_page_breaks_dir = (
+                previous_auto_page_breaks_dir
+            )
+
     def _resolve_size_flags(self) -> tuple[bool, bool]:
         """
         Determine whether to include Shape/Chart size fields in output.
@@ -663,11 +680,10 @@ class ExStructEngine:
             image=image,
         )
 
-        wb = self._extract_workbook_with_options(
-            normalized_file_path,
-            mode=chosen_mode,
-            include_auto_page_breaks=include_auto_page_breaks,
-        )
+        with self._process_extract_scope(
+            auto_page_breaks_dir=normalized_auto_page_breaks_dir
+        ):
+            wb = self.extract(normalized_file_path, mode=chosen_mode)
         chosen_fmt = out_fmt or self.output.format.fmt
         self.export(
             wb,

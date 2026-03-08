@@ -21,6 +21,18 @@ _DEFAULT_EXEC_TIMEOUT_SEC = 30.0
 _DEFAULT_PYTHON_PROBE_TIMEOUT_SEC = 5.0
 _STARTUP_PORT_RETRY_LIMIT = 3
 _STARTUP_PORT_RETRY_BACKOFF_SEC = 0.1
+_SUBPROCESS_ENV_ALLOWLIST = (
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "PATH",
+    "SYSTEMROOT",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "WINDIR",
+)
 
 
 class LibreOfficeUnavailableError(RuntimeError):
@@ -122,7 +134,9 @@ class LibreOfficeSession:
     def from_env(cls) -> LibreOfficeSession:
         """Build a session from ExStruct environment variables."""
         raw_path = os.getenv("EXSTRUCT_LIBREOFFICE_PATH")
-        resolved = Path(raw_path) if raw_path else _which_soffice()
+        resolved = (
+            _validated_runtime_path(Path(raw_path)) if raw_path else _which_soffice()
+        )
         if resolved is None:
             raise LibreOfficeUnavailableError(
                 "LibreOffice runtime is unavailable: soffice was not found."
@@ -249,19 +263,17 @@ class LibreOfficeSession:
         if cache_key in self._bridge_payload_cache:
             return self._bridge_payload_cache[cache_key]
         bridge_path = Path(__file__).with_name("_libreoffice_bridge.py")
-        env = dict(os.environ)
-        env["PYTHONIOENCODING"] = "utf-8"
         try:
             completed = subprocess.run(
                 [
-                    str(self._python_path),
-                    str(bridge_path),
+                    _subprocess_executable_arg(self._python_path),
+                    _subprocess_path_arg(bridge_path),
                     "--host",
                     "127.0.0.1",
                     "--port",
                     str(self._accept_port),
                     "--file",
-                    str(file_path.resolve()),
+                    _subprocess_path_arg(file_path.resolve()),
                     "--kind",
                     kind,
                 ],
@@ -270,7 +282,7 @@ class LibreOfficeSession:
                 text=True,
                 encoding="utf-8",
                 timeout=self.config.exec_timeout_sec,
-                env=env,
+                env=_build_subprocess_env(pythonioencoding="utf-8"),
             )
         except FileNotFoundError as exc:
             raise LibreOfficeUnavailableError(
@@ -334,7 +346,7 @@ def _probe_soffice_runtime(*, soffice_path: Path, timeout_sec: float) -> None:
 
     try:
         subprocess.run(
-            [str(soffice_path), "--version"],
+            [_subprocess_executable_arg(soffice_path), "--version"],
             capture_output=True,
             check=True,
             text=True,
@@ -496,7 +508,7 @@ def _build_soffice_startup_command(
     """Build the soffice command used for a startup attempt."""
 
     args = [
-        str(soffice_path),
+        _subprocess_executable_arg(soffice_path),
         "--headless",
         "--nologo",
         "--nodefault",
@@ -663,7 +675,7 @@ def _resolve_python_path(soffice_path: Path) -> Path | None:
 
     override = os.getenv("EXSTRUCT_LIBREOFFICE_PYTHON_PATH")
     if override:
-        override_path = Path(override)
+        override_path = _validated_runtime_path(Path(override))
         detail = _probe_libreoffice_bridge_failure(override_path)
         if detail is not None:
             raise LibreOfficeUnavailableError(
@@ -727,14 +739,12 @@ def _probe_libreoffice_bridge_failure(python_path: Path) -> str | None:
 
     if not python_path.exists():
         return f"'{python_path}' was not found."
-    env = dict(os.environ)
-    env["PYTHONIOENCODING"] = "utf-8"
     bridge_path = Path(__file__).with_name("_libreoffice_bridge.py")
     try:
         subprocess.run(
             [
-                str(python_path),
-                str(bridge_path),
+                _subprocess_executable_arg(python_path),
+                _subprocess_path_arg(bridge_path),
                 "--probe",
             ],
             capture_output=True,
@@ -742,7 +752,7 @@ def _probe_libreoffice_bridge_failure(python_path: Path) -> str | None:
             text=True,
             encoding="utf-8",
             timeout=_DEFAULT_PYTHON_PROBE_TIMEOUT_SEC,
-            env=env,
+            env=_build_subprocess_env(pythonioencoding="utf-8"),
         )
     except OSError:
         return f"'{python_path}' could not be executed."
@@ -761,6 +771,40 @@ def _reserve_tcp_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         return int(sock.getsockname()[1])
+
+
+def _validated_runtime_path(path: Path) -> Path:
+    """Return a normalized runtime path before it is used in subprocess argv."""
+
+    try:
+        return path.resolve(strict=False)
+    except OSError:
+        return path
+
+
+def _subprocess_executable_arg(path: Path) -> str:
+    """Return a validated executable argument for subprocess calls."""
+
+    return str(_validated_runtime_path(path))
+
+
+def _subprocess_path_arg(path: Path) -> str:
+    """Return a normalized non-executable path argument for subprocess calls."""
+
+    return str(path.resolve(strict=False))
+
+
+def _build_subprocess_env(*, pythonioencoding: str | None = None) -> dict[str, str]:
+    """Return a minimal inherited environment for bridge-related subprocesses."""
+
+    env: dict[str, str] = {}
+    for key in _SUBPROCESS_ENV_ALLOWLIST:
+        value = os.environ.get(key)
+        if value:
+            env[key] = value
+    if pythonioencoding is not None:
+        env["PYTHONIOENCODING"] = pythonioencoding
+    return env
 
 
 def _wait_for_socket(

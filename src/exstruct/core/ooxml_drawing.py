@@ -42,6 +42,15 @@ _SHAPE_TYPE_MAP = {
     "rect": "Rectangle",
     "straightConnector1": "StraightConnector1",
 }
+_WORKSHEET_REL_TYPE = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"
+)
+_DRAWING_REL_TYPE = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"
+)
+_CHART_REL_TYPE = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"
+)
 
 
 @dataclass(frozen=True)
@@ -64,6 +73,14 @@ class DrawingConnectorRef:
     drawing_id: int
     start_drawing_id: int | None
     end_drawing_id: int | None
+
+
+@dataclass(frozen=True)
+class OoxmlRelationship:
+    """Relationship metadata extracted from an OOXML ``.rels`` part."""
+
+    target: str
+    relationship_type: str
 
 
 @dataclass(frozen=True)
@@ -143,7 +160,10 @@ def _iter_sheet_xml_paths(archive: ZipFile) -> list[tuple[str, str]]:
         rel_id = sheet.attrib.get(f"{{{_NS['r']}}}id")
         if not name or not rel_id or rel_id not in rel_map:
             continue
-        paths.append((name, rel_map[rel_id]))
+        relationship = rel_map[rel_id]
+        if relationship.relationship_type != _WORKSHEET_REL_TYPE:
+            continue
+        paths.append((name, relationship.target))
     return paths
 
 
@@ -154,10 +174,10 @@ def _resolve_sheet_drawing_path(archive: ZipFile, sheet_xml_path: str) -> str | 
     if rels_path not in archive.namelist():
         return None
     rel_map = _read_relationships(archive, rels_path)
-    for rel_id, target in rel_map.items():
-        _ = rel_id
-        if target.startswith("xl/drawings/"):
-            return target
+    for relationship in rel_map.values():
+        if relationship.relationship_type != _DRAWING_REL_TYPE:
+            continue
+        return relationship.target
     return None
 
 
@@ -303,7 +323,7 @@ def _parse_chart_node(
     archive: ZipFile,
     anchor: ElementTree.Element,
     node: ElementTree.Element,
-    rel_map: dict[str, str],
+    rel_map: dict[str, OoxmlRelationship],
 ) -> OoxmlChartInfo | None:
     """Parse an OOXML graphic-frame chart node into chart metadata."""
 
@@ -314,8 +334,11 @@ def _parse_chart_node(
     rel_id = node.find("a:graphic/a:graphicData/c:chart", _NS)
     if rel_id is None:
         return None
-    target = rel_map.get(rel_id.attrib.get(f"{{{_NS['r']}}}id", ""))
-    if target is None or target not in archive.namelist():
+    relationship = rel_map.get(rel_id.attrib.get(f"{{{_NS['r']}}}id", ""))
+    if relationship is None or relationship.relationship_type != _CHART_REL_TYPE:
+        return None
+    target = relationship.target
+    if target not in archive.namelist():
         return None
     chart_root = ElementTree.fromstring(archive.read(target))
     left, top, width, height, _rotation, _flip_h, _flip_v = _parse_xfrm_geometry(
@@ -550,13 +573,13 @@ def _merge_anchor_geometry(
     width: int | None,
     height: int | None,
 ) -> tuple[int | None, int | None, int | None, int | None]:
-    """Prefer child transform geometry, but fill missing/zero values from anchors."""
+    """Use parent anchors for placement and child transforms for size when present."""
 
     anchor_left, anchor_top, anchor_width, anchor_height = _parse_anchor_geometry(
         anchor
     )
-    resolved_left = left if left not in {None, 0} else anchor_left
-    resolved_top = top if top not in {None, 0} else anchor_top
+    resolved_left = anchor_left if anchor_left is not None else left
+    resolved_top = anchor_top if anchor_top is not None else top
     resolved_width = width if width not in {None, 0} else anchor_width
     resolved_height = height if height not in {None, 0} else anchor_height
     return (resolved_left, resolved_top, resolved_width, resolved_height)
@@ -621,18 +644,24 @@ def _marker_to_points(
     return (left, top)
 
 
-def _read_relationships(archive: ZipFile, rels_path: str) -> dict[str, str]:
-    """Read a relationships part into a relationship-id to target map."""
+def _read_relationships(
+    archive: ZipFile, rels_path: str
+) -> dict[str, OoxmlRelationship]:
+    """Read a relationships part into a relationship-id keyed metadata map."""
 
     root = ElementTree.fromstring(archive.read(rels_path))
     base_path = _base_dir(_source_path_from_rels(rels_path))
-    rel_map: dict[str, str] = {}
+    rel_map: dict[str, OoxmlRelationship] = {}
     for rel in root.findall("rel:Relationship", _NS):
         rel_id = rel.attrib.get("Id")
         target = rel.attrib.get("Target")
-        if not rel_id or not target:
+        relationship_type = rel.attrib.get("Type")
+        if not rel_id or not target or not relationship_type:
             continue
-        rel_map[rel_id] = _normalize_zip_path(base_path, target)
+        rel_map[rel_id] = OoxmlRelationship(
+            target=_normalize_zip_path(base_path, target),
+            relationship_type=relationship_type,
+        )
     return rel_map
 
 
