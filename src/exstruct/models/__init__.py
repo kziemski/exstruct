@@ -39,6 +39,8 @@ class BaseShape(BaseModel):
     )
     confidence: float | None = Field(
         default=None,
+        ge=0.0,
+        le=1.0,
         description="Best-effort confidence score between 0.0 and 1.0.",
     )
 
@@ -167,6 +169,8 @@ class Chart(BaseModel):
     )
     confidence: float | None = Field(
         default=None,
+        ge=0.0,
+        le=1.0,
         description="Best-effort confidence score between 0.0 and 1.0.",
     )
 

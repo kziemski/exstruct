@@ -11,7 +11,10 @@ from xml.etree import ElementTree
 from _pytest.monkeypatch import MonkeyPatch
 import pytest
 
-from exstruct.core.backends.libreoffice_backend import LibreOfficeRichBackend
+from exstruct.core.backends.libreoffice_backend import (
+    LibreOfficeRichBackend,
+    _resolve_direction,
+)
 from exstruct.core.libreoffice import (
     LibreOfficeChartGeometry,
     LibreOfficeDrawPageShape,
@@ -27,7 +30,9 @@ from exstruct.core.ooxml_drawing import (
     OoxmlConnectorInfo,
     OoxmlShapeInfo,
     SheetDrawingData,
+    _extract_chart_series,
     _parse_connector_node,
+    read_sheet_drawings,
 )
 from exstruct.models import Arrow, Shape
 
@@ -410,7 +415,15 @@ def test_ooxml_connector_tail_end_maps_to_begin_arrow_style() -> None:
         </xdr:cxnSp>
         """
     )
-    connector = _parse_connector_node(node)
+    anchor = ElementTree.fromstring(
+        """
+        <xdr:twoCellAnchor xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">
+          <xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
+          <xdr:to><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
+        </xdr:twoCellAnchor>
+        """
+    )
+    connector = _parse_connector_node(anchor, node)
     assert connector is not None
     assert connector.begin_arrow_style == 2
     assert connector.end_arrow_style is None
@@ -439,10 +452,196 @@ def test_ooxml_connector_head_end_maps_to_end_arrow_style() -> None:
         </xdr:cxnSp>
         """
     )
-    connector = _parse_connector_node(node)
+    anchor = ElementTree.fromstring(
+        """
+        <xdr:twoCellAnchor xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">
+          <xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
+          <xdr:to><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
+        </xdr:twoCellAnchor>
+        """
+    )
+    connector = _parse_connector_node(anchor, node)
     assert connector is not None
     assert connector.begin_arrow_style is None
     assert connector.end_arrow_style == 2
+
+
+def test_libreoffice_backend_combines_ooxml_and_uno_connector_endpoints(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Verify that missing OOXML endpoints are completed from UNO direct refs."""
+
+    payload = {
+        "Sheet1": [
+            LibreOfficeDrawPageShape(
+                name="Start",
+                shape_type="com.sun.star.drawing.CustomShape",
+                left=10,
+                top=20,
+                width=30,
+                height=40,
+            ),
+            LibreOfficeDrawPageShape(
+                name="Connector",
+                shape_type="com.sun.star.drawing.ConnectorShape",
+                left=40,
+                top=30,
+                width=0,
+                height=60,
+                is_connector=True,
+                start_shape_name="Start",
+                end_shape_name="End",
+            ),
+            LibreOfficeDrawPageShape(
+                name="End",
+                shape_type="com.sun.star.drawing.CustomShape",
+                left=100,
+                top=120,
+                width=30,
+                height=40,
+            ),
+        ]
+    }
+    monkeypatch.setattr(
+        "exstruct.core.backends.libreoffice_backend.read_sheet_drawings",
+        lambda _path: {
+            "Sheet1": SheetDrawingData(
+                shapes=[
+                    OoxmlShapeInfo(
+                        ref=DrawingShapeRef(
+                            drawing_id=10,
+                            name="Start",
+                            kind="shape",
+                            left=10,
+                            top=20,
+                            width=30,
+                            height=40,
+                        )
+                    ),
+                    OoxmlShapeInfo(
+                        ref=DrawingShapeRef(
+                            drawing_id=20,
+                            name="End",
+                            kind="shape",
+                            left=100,
+                            top=120,
+                            width=30,
+                            height=40,
+                        )
+                    ),
+                ],
+                connectors=[
+                    OoxmlConnectorInfo(
+                        ref=DrawingShapeRef(
+                            drawing_id=30,
+                            name="Connector",
+                            kind="connector",
+                            left=40,
+                            top=30,
+                            width=0,
+                            height=60,
+                        ),
+                        connection=DrawingConnectorRef(
+                            drawing_id=30,
+                            start_drawing_id=10,
+                            end_drawing_id=None,
+                        ),
+                        direction_dx=0,
+                        direction_dy=0,
+                    )
+                ],
+            )
+        },
+    )
+    backend = LibreOfficeRichBackend(
+        Path("sample/flowchart/sample-shape-connector.xlsx"),
+        session_factory=lambda: cast(LibreOfficeSession, _DrawPageSession(payload)),
+    )
+
+    connector = next(
+        shape
+        for shape in backend.extract_shapes(mode="libreoffice")["Sheet1"]
+        if isinstance(shape, Arrow)
+    )
+
+    assert connector.begin_id == 1
+    assert connector.end_id == 2
+    assert connector.approximation_level == "partial"
+    assert connector.confidence == 0.9
+    assert connector.direction == "N"
+
+
+def test_ooxml_zero_delta_direction_falls_back_to_uno_geometry() -> None:
+    """Verify that a zero-length OOXML delta does not force an eastward direction."""
+
+    connector = OoxmlConnectorInfo(
+        ref=DrawingShapeRef(
+            drawing_id=1,
+            name="Connector",
+            kind="connector",
+            left=0,
+            top=0,
+            width=0,
+            height=0,
+        ),
+        connection=DrawingConnectorRef(
+            drawing_id=1,
+            start_drawing_id=None,
+            end_drawing_id=None,
+        ),
+        direction_dx=0,
+        direction_dy=0,
+    )
+    uno_connector = LibreOfficeDrawPageShape(
+        name="Connector",
+        is_connector=True,
+        width=0,
+        height=25,
+    )
+
+    assert (
+        _resolve_direction(connector_info=connector, uno_connector=uno_connector) == "N"
+    )
+
+
+def test_read_sheet_drawings_uses_anchor_fallback_for_chart_geometry() -> None:
+    """Verify that zero-xfrm charts still get positive anchor geometry from OOXML."""
+
+    drawings = read_sheet_drawings(Path("sample/basic/sample.xlsx"))
+    chart = drawings["Sheet1"].charts[0]
+
+    assert chart.anchor_left is not None and chart.anchor_left > 0
+    assert chart.anchor_top is not None and chart.anchor_top > 0
+    assert chart.anchor_width is not None and chart.anchor_width > 0
+    assert chart.anchor_height is not None and chart.anchor_height > 0
+
+
+def test_extract_chart_series_supports_scatter_xval_yval() -> None:
+    """Verify that scatter/bubble series use xVal/yVal references when present."""
+
+    chart_root = ElementTree.fromstring(
+        """
+        <c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart">
+          <c:chart>
+            <c:plotArea>
+              <c:scatterChart>
+                <c:ser>
+                  <c:tx><c:v>Series 1</c:v></c:tx>
+                  <c:xVal><c:numRef><c:f>Sheet1!$A$2:$A$5</c:f></c:numRef></c:xVal>
+                  <c:yVal><c:numRef><c:f>Sheet1!$B$2:$B$5</c:f></c:numRef></c:yVal>
+                </c:ser>
+              </c:scatterChart>
+            </c:plotArea>
+          </c:chart>
+        </c:chartSpace>
+        """
+    )
+
+    series = _extract_chart_series(chart_root)
+
+    assert len(series) == 1
+    assert series[0].x_range == "Sheet1!$A$2:$A$5"
+    assert series[0].y_range == "Sheet1!$B$2:$B$5"
 
 
 def test_libreoffice_session_skips_temp_profile_when_version_probe_fails(

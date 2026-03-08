@@ -11,9 +11,9 @@ import shutil
 import socket
 import subprocess
 import sys
-from tempfile import mkdtemp
+from tempfile import NamedTemporaryFile, mkdtemp
 import time
-from typing import Literal
+from typing import Literal, TextIO, cast
 
 _DEFAULT_STARTUP_TIMEOUT_SEC = 15.0
 _DEFAULT_EXEC_TIMEOUT_SEC = 30.0
@@ -78,6 +78,8 @@ class _LibreOfficeStartupSuccess:
     process: subprocess.Popen[str]
     port: int
     temp_profile_dir: Path | None
+    stderr_sink: TextIO | None
+    stderr_path: Path | None
 
 
 @dataclass(frozen=True)
@@ -110,6 +112,8 @@ class LibreOfficeSession:
         self._accept_port: int | None = None
         self._python_path = _resolve_python_path(config.soffice_path)
         self._bridge_payload_cache: dict[str, object] = {}
+        self._soffice_stderr_sink: TextIO | None = None
+        self._soffice_stderr_path: Path | None = None
 
     @classmethod
     def from_env(cls) -> LibreOfficeSession:
@@ -172,6 +176,8 @@ class LibreOfficeSession:
             self._soffice_process = startup.process
             self._accept_port = startup.port
             self._temp_profile_dir = startup.temp_profile_dir
+            self._soffice_stderr_sink = startup.stderr_sink
+            self._soffice_stderr_path = startup.stderr_path
             return self
         raise LibreOfficeUnavailableError(_format_startup_failures(failures))
 
@@ -184,6 +190,9 @@ class LibreOfficeSession:
         if self._soffice_process is not None:
             _shutdown_soffice_process(self._soffice_process)
             self._soffice_process = None
+        _close_stderr_sink(self._soffice_stderr_sink, self._soffice_stderr_path)
+        self._soffice_stderr_sink = None
+        self._soffice_stderr_path = None
         self._accept_port = None
         if self._temp_profile_dir is not None:
             _cleanup_profile_dir(self._temp_profile_dir)
@@ -365,7 +374,10 @@ def _start_soffice_startup_attempt(
     )
     port = _reserve_tcp_port()
     process: subprocess.Popen[str] | None = None
+    stderr_sink: TextIO | None = None
+    stderr_path: Path | None = None
     try:
+        stderr_sink, stderr_path = _create_stderr_sink()
         process = subprocess.Popen(
             _build_soffice_startup_command(
                 soffice_path=soffice_path,
@@ -373,7 +385,7 @@ def _start_soffice_startup_attempt(
                 temp_profile_dir=temp_profile_dir,
             ),
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
+            stderr=stderr_sink,
             text=True,
         )
         _wait_for_socket(
@@ -386,6 +398,8 @@ def _start_soffice_startup_attempt(
         _cleanup_failed_startup_attempt(
             process=process,
             temp_profile_dir=temp_profile_dir,
+            stderr_sink=stderr_sink,
+            stderr_path=stderr_path,
         )
         raise _LibreOfficeStartupAttemptError(
             _LibreOfficeStartupFailure(
@@ -397,6 +411,8 @@ def _start_soffice_startup_attempt(
         detail = _cleanup_failed_startup_attempt(
             process=process,
             temp_profile_dir=temp_profile_dir,
+            stderr_sink=stderr_sink,
+            stderr_path=stderr_path,
         )
         raise _LibreOfficeStartupAttemptError(
             _LibreOfficeStartupFailure(
@@ -411,6 +427,8 @@ def _start_soffice_startup_attempt(
         detail = _cleanup_failed_startup_attempt(
             process=process,
             temp_profile_dir=temp_profile_dir,
+            stderr_sink=stderr_sink,
+            stderr_path=stderr_path,
         )
         raise _LibreOfficeStartupAttemptError(
             _LibreOfficeStartupFailure(
@@ -427,6 +445,8 @@ def _start_soffice_startup_attempt(
         process=process,
         port=port,
         temp_profile_dir=temp_profile_dir,
+        stderr_sink=stderr_sink,
+        stderr_path=stderr_path,
     )
 
 
@@ -458,9 +478,7 @@ def _build_soffice_startup_command(
     if temp_profile_dir is not None:
         args.append(f"-env:UserInstallation={temp_profile_dir.as_uri()}")
     args.append(
-        "--accept="
-        "socket,host=127.0.0.1,"
-        f"port={port};urp;StarOffice.ComponentContext"
+        f"--accept=socket,host=127.0.0.1,port={port};urp;StarOffice.ComponentContext"
     )
     return args
 
@@ -469,13 +487,19 @@ def _cleanup_failed_startup_attempt(
     *,
     process: subprocess.Popen[str] | None,
     temp_profile_dir: Path | None,
+    stderr_sink: TextIO | None,
+    stderr_path: Path | None,
 ) -> str | None:
     """Terminate a failed startup attempt and return a bounded stderr detail."""
 
     detail: str | None = None
     if process is not None:
         _shutdown_soffice_process(process)
-        detail = _read_soffice_startup_stderr(process)
+        detail = _read_soffice_startup_stderr(
+            process=process,
+            stderr_sink=stderr_sink,
+        )
+    _close_stderr_sink(stderr_sink, stderr_path)
     if temp_profile_dir is not None:
         _cleanup_profile_dir(temp_profile_dir)
     return detail
@@ -501,16 +525,51 @@ def _shutdown_soffice_process(process: subprocess.Popen[str]) -> None:
             pass
 
 
-def _read_soffice_startup_stderr(process: subprocess.Popen[str]) -> str | None:
+def _create_stderr_sink() -> tuple[TextIO, Path]:
+    """Create a temporary sink file for long-running soffice stderr."""
+
+    sink = NamedTemporaryFile(
+        mode="w+",
+        encoding="utf-8",
+        prefix="exstruct-soffice-",
+        suffix=".log",
+        delete=False,
+    )
+    return (cast(TextIO, sink), Path(sink.name))
+
+
+def _close_stderr_sink(stderr_sink: TextIO | None, stderr_path: Path | None) -> None:
+    """Close and remove a temporary soffice stderr sink."""
+
+    if stderr_sink is not None:
+        stderr_sink.close()
+    if stderr_path is not None:
+        try:
+            stderr_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _read_soffice_startup_stderr(
+    *,
+    process: subprocess.Popen[str],
+    stderr_sink: TextIO | None,
+) -> str | None:
     """Read a short stderr snippet from a failed soffice startup attempt."""
 
-    try:
-        _stdout, stderr = process.communicate(timeout=0.2)
-    except subprocess.TimeoutExpired:
-        return None
+    stderr = ""
+    if stderr_sink is not None:
+        stderr_sink.flush()
+        stderr_sink.seek(0)
+        stderr = stderr_sink.read()
+    if not stderr:
+        try:
+            _stdout, stderr = process.communicate(timeout=0.2)
+        except subprocess.TimeoutExpired:
+            return None
     if not stderr:
         return None
-    cleaned = " ".join(stderr.strip().split())
+    cleaned = " ".join(str(stderr).strip().split())
     if not cleaned:
         return None
     return f"stderr={cleaned[:240]}"

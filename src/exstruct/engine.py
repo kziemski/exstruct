@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .constraints import (
     normalize_path,
+    validate_libreoffice_extraction_request,
     validate_libreoffice_process_request,
 )
 from .core import cells as _cells
@@ -397,15 +398,50 @@ class ExStructEngine:
             WorkbookData: Normalized workbook data extracted from the file.
         """
         chosen_mode = mode or self.options.mode
-        include_auto_page_breaks = (
-            self.output.filters.include_auto_print_areas
-            or self.output.destinations.auto_page_breaks_dir is not None
+        include_auto_page_breaks = self._resolve_include_auto_page_breaks()
+        return self._extract_workbook_with_options(
+            file_path,
+            mode=chosen_mode,
+            include_auto_page_breaks=include_auto_page_breaks,
         )
-        normalized_file_path = normalize_path(file_path)
+
+    def _resolve_include_auto_page_breaks(
+        self,
+        *,
+        auto_page_breaks_dir: Path | None = None,
+    ) -> bool:
+        """Return whether extraction must compute auto page-break areas."""
+
+        effective_auto_page_breaks_dir = (
+            auto_page_breaks_dir
+            if auto_page_breaks_dir is not None
+            else self._ensure_optional_path(
+                self.output.destinations.auto_page_breaks_dir
+            )
+        )
+        return (
+            self.output.filters.include_auto_print_areas
+            or effective_auto_page_breaks_dir is not None
+        )
+
+    def _extract_workbook_with_options(
+        self,
+        file_path: str | Path,
+        *,
+        mode: ExtractionMode,
+        include_auto_page_breaks: bool,
+    ) -> WorkbookData:
+        """Extract a workbook with already-resolved validation-sensitive options."""
+
+        normalized_file_path = validate_libreoffice_extraction_request(
+            file_path,
+            mode=mode,
+            include_auto_page_breaks=include_auto_page_breaks,
+        )
         with self._table_params_scope():
             workbook = extract_workbook(
                 normalized_file_path,
-                mode=chosen_mode,
+                mode=mode,
                 include_cell_links=self.options.include_cell_links,
                 include_print_areas=None,
                 include_auto_page_breaks=include_auto_page_breaks,
@@ -616,16 +652,8 @@ class ExStructEngine:
         normalized_auto_page_breaks_dir = self._ensure_optional_path(
             auto_page_breaks_dir
         )
-        effective_auto_page_breaks_dir = (
-            normalized_auto_page_breaks_dir
-            if normalized_auto_page_breaks_dir is not None
-            else self._ensure_optional_path(
-                self.output.destinations.auto_page_breaks_dir
-            )
-        )
-        include_auto_page_breaks = (
-            self.output.filters.include_auto_print_areas
-            or effective_auto_page_breaks_dir is not None
+        include_auto_page_breaks = self._resolve_include_auto_page_breaks(
+            auto_page_breaks_dir=normalized_auto_page_breaks_dir
         )
         normalized_file_path = validate_libreoffice_process_request(
             file_path,
@@ -635,7 +663,11 @@ class ExStructEngine:
             image=image,
         )
 
-        wb = self.extract(normalized_file_path, mode=chosen_mode)
+        wb = self._extract_workbook_with_options(
+            normalized_file_path,
+            mode=chosen_mode,
+            include_auto_page_breaks=include_auto_page_breaks,
+        )
         chosen_fmt = out_fmt or self.output.format.fmt
         self.export(
             wb,

@@ -39,6 +39,38 @@
   - `normalize_path()` docstring のみの修正
   - `.xls` 例外型の `ConfigError` への変更
 
+### 2026-03-08 Implementation Progress
+
+- [x] `process()` / `extract()` の auto page-break override 整合を修正
+- [x] LibreOffice guardrail tests (`image` / `.xls` / passthrough / extraction validator / process propagation) を追加
+- [x] `docs/cli.md` / `docs/api.md` の follow-up docs 差分を反映
+- [x] `confidence` の model/schema range 制約と validation/schema tests を追加
+- [x] OOXML parser hardening (`defusedxml`) と anchor / scatter series fallback を実装
+- [x] connector endpoint の mixed direct resolve と `(0,0)` direction fallback を修正
+- [x] LibreOffice `stderr` を temp sink 化して undrained pipe を解消
+- [x] LibreOffice smoke job を fail-fast 化し、GitHub ruleset に `libreoffice-linux-smoke` required status check を追加
+- [ ] OOXML-only append 方針と `_reserve_tcp_port()` race は調査継続
+
+### 2026-03-08 Verification Addendum
+
+- `uv run pytest tests/test_constraints.py tests/backends/test_auto_page_breaks.py tests/core/test_libreoffice_backend.py tests/models/test_models_validation.py tests/models/test_schemas_generated.py tests/test_conftest_libreoffice_runtime.py tests/core/test_mode_output.py -k "libreoffice or process_excel_rejects or extract_workbook_rejects or not test_standard and not test_verbose" -q` -> `59 passed, 2 deselected`
+- `uv run task precommit-run` -> `ruff / ruff-format / mypy passed`
+- `gh api repos/harumiWeb/exstruct/rulesets/11087410` で `required_status_checks.context=libreoffice-linux-smoke` を確認
+
+### 2026-03-08 Follow-up Planning
+
+- [ ] `_reserve_tcp_port()` race hardening を実装する
+- [ ] startup attempt 内の bounded retry contract を code / spec / tests に反映する
+- [ ] port collision を模した retry success / retry exhausted regression tests を追加する
+- [ ] draw-page snapshot あり sheet で unmatched OOXML shape / connector を append しない contract test を追加する
+- [ ] unmatched OOXML 件数の debug logging を入れるか別タスクとして判断する
+
+### 2026-03-08 Follow-up Review
+
+- `_reserve_tcp_port()` は hold-open reservation ではなく retry-based hardening で扱う
+- OOXML-only append は v1 非対応とし、UNO canonical order を崩さない contract を固定する
+- append を見送る代わりに、必要なら unmatched 件数の観測だけ別タスクで扱う
+
 ## 2026-03-06 Backend Metadata Output Follow-up
 
 ### Planning

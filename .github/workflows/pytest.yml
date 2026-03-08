@@ -54,6 +54,7 @@ jobs:
       PYTHONIOENCODING: "utf-8"
       DEBIAN_FRONTEND: noninteractive
       RUN_LIBREOFFICE_SMOKE: "1"
+      FORCE_LIBREOFFICE_SMOKE: "1"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.12

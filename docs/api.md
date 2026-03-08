@@ -194,7 +194,6 @@ See generated/models.md for the detailed model fields (run `python scripts/gen_m
 
 ### Model helpers (SheetData / WorkbookData)
 
-- `to_json(pretty=False, indent=None)` → JSON string (pretty when requested)
 - `to_json(pretty=False, indent=None, include_backend_metadata=False)` → JSON string (pretty when requested)
 - `to_yaml(include_backend_metadata=False)` → YAML string (requires `pyyaml`)
 - `to_toon(include_backend_metadata=False)` → TOON string (requires `python-toon`)

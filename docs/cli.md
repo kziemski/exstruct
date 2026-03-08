@@ -26,6 +26,7 @@ exstruct INPUT.xlsx --format toon           # TOON output (needs python-toon)
 | `--image` | Render per-sheet PNGs (requires Excel + COM + `pypdfium2`; not supported in `--mode libreoffice`). |
 | `--pdf` | Render PDF (requires Excel + COM + `pypdfium2`; not supported in `--mode libreoffice`). |
 | `--dpi INT` | DPI for rendered images (default: 144). |
+| `--include-backend-metadata` | Include shape/chart backend metadata (`provenance`, `approximation_level`, `confidence`) in structured output. |
 | `--sheets-dir DIR` | Write one file per sheet (format follows `--format`). |
 | `--print-areas-dir DIR` | Write one file per print area (format follows `--format`). |
 

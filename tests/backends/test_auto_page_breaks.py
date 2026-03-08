@@ -89,6 +89,55 @@ def test_extract_rejects_auto_page_break_flag_in_libreoffice_mode(
         engine.extract(tmp_path / "book.xlsx")
 
 
+def test_process_passes_auto_page_break_flag_from_per_call_destination(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verify that process-time auto-page-break overrides reach extraction."""
+
+    called: dict[str, object] = {}
+
+    def fake_extract(
+        path: Path,
+        mode: str,
+        include_cell_links: bool = False,
+        include_print_areas: bool = True,
+        include_auto_page_breaks: bool = False,
+        include_colors_map: bool = False,
+        include_default_background: bool = False,
+        ignore_colors: set[str] | None = None,
+        include_formulas_map: bool | None = None,
+        include_merged_cells: bool | None = None,
+        include_merged_values_in_rows: bool = True,
+    ) -> WorkbookData:
+        _ = (
+            include_cell_links,
+            include_print_areas,
+            include_colors_map,
+            include_default_background,
+            ignore_colors,
+            include_formulas_map,
+            include_merged_cells,
+            include_merged_values_in_rows,
+        )
+        called["path"] = path
+        called["mode"] = mode
+        called["include_auto_page_breaks"] = include_auto_page_breaks
+        return WorkbookData(book_name=path.name, sheets={})
+
+    monkeypatch.setattr("exstruct.engine.extract_workbook", fake_extract)
+
+    engine = ExStructEngine(options=StructOptions(mode="standard"))
+    engine.process(
+        tmp_path / "book.xlsx",
+        output_path=tmp_path / "out.json",
+        auto_page_breaks_dir=tmp_path / "auto",
+    )
+
+    assert called["path"] == tmp_path / "book.xlsx"
+    assert called["mode"] == "standard"
+    assert called["include_auto_page_breaks"] is True
+
+
 def test_export_auto_page_breaks_writes_files(tmp_path: Path) -> None:
     """Verify that export auto page breaks writes files."""
 

@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from _pytest.monkeypatch import MonkeyPatch
+import pytest
 
 
 def test_has_libreoffice_runtime_returns_false_on_probe_failure(
@@ -41,5 +42,43 @@ def test_has_libreoffice_runtime_returns_false_on_probe_failure(
     conftest._has_libreoffice_runtime.cache_clear()
 
     assert conftest._has_libreoffice_runtime() is False
+
+    conftest._has_libreoffice_runtime.cache_clear()
+
+
+def test_libreoffice_skip_reason_fails_fast_when_forced(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    """Verify that required LibreOffice smoke fails instead of skipping."""
+
+    module_path = Path(__file__).with_name("conftest.py")
+    spec = importlib.util.spec_from_file_location(
+        "tests_runtime_conftest_force", module_path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Failed to load tests/conftest.py")
+    conftest = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(conftest)
+
+    soffice_path = tmp_path / "soffice"
+    soffice_path.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        conftest,
+        "_load_libreoffice_runtime_module",
+        lambda: SimpleNamespace(
+            _which_soffice=lambda: soffice_path,
+            _resolve_python_path=lambda _path: (_ for _ in ()).throw(
+                RuntimeError("bridge probe failed")
+            ),
+        ),
+    )
+    monkeypatch.setenv("RUN_LIBREOFFICE_SMOKE", "1")
+    monkeypatch.setenv("FORCE_LIBREOFFICE_SMOKE", "1")
+    conftest.__dict__["RUN_LIBREOFFICE_SMOKE"] = True
+    conftest.__dict__["FORCE_LIBREOFFICE_SMOKE"] = True
+    conftest._has_libreoffice_runtime.cache_clear()
+
+    with pytest.raises(RuntimeError, match="FORCE_LIBREOFFICE_SMOKE=1"):
+        conftest._libreoffice_skip_reason()
 
     conftest._has_libreoffice_runtime.cache_clear()

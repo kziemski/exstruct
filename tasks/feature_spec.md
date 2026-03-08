@@ -47,6 +47,29 @@
 - `snapshots` が存在するシートで OOXML-only shape / connector を append すべきかは、`UNO canonical order` 契約との整合を再確認してから決める。
 - `_reserve_tcp_port()` の race は理論上成立するため、hold-open reservation へ変えるか、現行実装の許容理由を明文化するかを follow-up で判断する。
 
+### 2026-03-08 follow-up decision
+
+- `_reserve_tcp_port()` race は「port を完全予約する」方針ではなく、startup attempt 内の bounded retry で扱う。
+  - 1 回の startup attempt (`isolated-profile` / `shared-profile`) は `port allocate -> soffice spawn -> socket wait` を最大 3 回まで再試行できる。
+  - retry ごとに新しい ephemeral port を使い、短い backoff を入れる。
+  - retry 対象は `socket startup timed out`、startup 中 exit、bind 失敗相当の stderr を含む port-collision 系の起動失敗。
+  - 上限到達後は現在の aggregated startup failure に畳み込み、attempt 名と stderr detail を残す。
+  - verification:
+    - 1 回目失敗 / 2 回目成功の retry regression test
+    - 上限到達時に failure detail を保持する regression test
+- `draw-page snapshots` が存在する sheet では、OOXML-only shape / connector を v1 では append しない。
+  - UNO draw-page snapshot order を canonical emitted order とする現行 contract を維持する。
+  - OOXML は shape type / arrowhead / explicit refs / geometry の補助情報に限定し、snapshot 未対応要素を emitted list に追加しない。
+  - 理由:
+    - emitted `id` の安定性を崩さない
+    - duplicate 判定を未定義のまま広げない
+    - connector `begin_id/end_id` の解決 contract を保つ
+    - `provenance` に OOXML-only を表す public contract を追加せずに済む
+  - verification:
+    - snapshot あり + unmatched OOXML shape/connector が emit されない unit test
+  - optional future:
+    - append ではなく unmatched 件数の debug logging / metrics を追加する余地は残す
+
 ### Out of scope for this follow-up
 
 - `ShapeData` / `ChartData` を dataclass/Pydantic へ全面変更するリファクタ

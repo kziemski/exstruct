@@ -417,37 +417,39 @@ def _resolve_connector(
         Tuple of begin id, end id, approximation label, and confidence score.
     """
 
-    if connector_info is not None:
-        start_id = connector_info.connection.start_drawing_id
-        end_id = connector_info.connection.end_drawing_id
-        begin_id = drawing_to_shape_id.get(start_id) if start_id is not None else None
-        end_id_resolved = (
-            drawing_to_shape_id.get(end_id) if end_id is not None else None
+    begin_id, end_id_resolved, used_ooxml_direct, used_uno_direct = (
+        _resolve_direct_connector_ids(
+            connector_info=connector_info,
+            uno_connector=uno_connector,
+            drawing_to_shape_id=drawing_to_shape_id,
+            shape_name_to_id=shape_name_to_id,
         )
-        if begin_id is not None or end_id_resolved is not None:
-            return (begin_id, end_id_resolved, "direct", 1.0)
+    )
 
-    if uno_connector is not None:
-        begin_id = (
-            shape_name_to_id.get(uno_connector.start_shape_name)
-            if uno_connector.start_shape_name is not None
-            else None
+    if begin_id is not None and end_id_resolved is not None:
+        return _classify_connector_resolution(
+            begin_id=begin_id,
+            end_id=end_id_resolved,
+            used_ooxml_direct=used_ooxml_direct,
+            used_uno_direct=used_uno_direct,
+            used_heuristic=False,
         )
-        end_id_resolved = (
-            shape_name_to_id.get(uno_connector.end_shape_name)
-            if uno_connector.end_shape_name is not None
-            else None
-        )
-        if begin_id is not None or end_id_resolved is not None:
-            return (begin_id, end_id_resolved, "direct", 0.9)
 
     start_point, end_point = _connector_endpoints(
         connector_info=connector_info,
         uno_connector=uno_connector,
     )
-    heuristic_begin = _nearest_shape_id(start_point, shape_boxes)
-    heuristic_end = _nearest_shape_id(end_point, shape_boxes)
-    return (heuristic_begin, heuristic_end, "heuristic", 0.6)
+    if begin_id is None:
+        begin_id = _nearest_shape_id(start_point, shape_boxes)
+    if end_id_resolved is None:
+        end_id_resolved = _nearest_shape_id(end_point, shape_boxes)
+    return _classify_connector_resolution(
+        begin_id=begin_id,
+        end_id=end_id_resolved,
+        used_ooxml_direct=used_ooxml_direct,
+        used_uno_direct=used_uno_direct,
+        used_heuristic=True,
+    )
 
 
 def _resolve_direction(
@@ -462,6 +464,8 @@ def _resolve_direction(
     dx = connector_info.direction_dx
     dy = connector_info.direction_dy
     if dx is None or dy is None:
+        return _direction_from_box(uno_connector)
+    if dx == 0 and dy == 0:
         return _direction_from_box(uno_connector)
     angle = compute_line_angle_deg(float(dx), float(dy))
     return angle_to_compass(angle)
@@ -479,7 +483,13 @@ def _connector_endpoints(
         top = connector_info.ref.top
         dx = connector_info.direction_dx
         dy = connector_info.direction_dy
-        if left is not None and top is not None and dx is not None and dy is not None:
+        if (
+            left is not None
+            and top is not None
+            and dx is not None
+            and dy is not None
+            and (dx != 0 or dy != 0)
+        ):
             start = (float(left), float(top))
             end = (float(left + dx), float(top + dy))
             return (start, end)
@@ -630,6 +640,56 @@ def _direction_from_box(
         return None
     angle = compute_line_angle_deg(float(connector.width), float(connector.height))
     return angle_to_compass(angle)
+
+
+def _resolve_direct_connector_ids(
+    *,
+    connector_info: OoxmlConnectorInfo | None,
+    uno_connector: LibreOfficeDrawPageShape | None,
+    drawing_to_shape_id: dict[int, int],
+    shape_name_to_id: dict[str, int],
+) -> tuple[int | None, int | None, bool, bool]:
+    """Resolve direct connector endpoints from OOXML refs and UNO shape refs."""
+
+    begin_id: int | None = None
+    end_id: int | None = None
+    used_ooxml_direct = False
+    used_uno_direct = False
+    if connector_info is not None:
+        start_id = connector_info.connection.start_drawing_id
+        target_id = connector_info.connection.end_drawing_id
+        begin_id = drawing_to_shape_id.get(start_id) if start_id is not None else None
+        end_id = drawing_to_shape_id.get(target_id) if target_id is not None else None
+        used_ooxml_direct = begin_id is not None or end_id is not None
+    if uno_connector is not None:
+        if begin_id is None and uno_connector.start_shape_name is not None:
+            begin_id = shape_name_to_id.get(uno_connector.start_shape_name)
+            used_uno_direct = used_uno_direct or begin_id is not None
+        if end_id is None and uno_connector.end_shape_name is not None:
+            end_id = shape_name_to_id.get(uno_connector.end_shape_name)
+            used_uno_direct = used_uno_direct or end_id is not None
+    return (begin_id, end_id, used_ooxml_direct, used_uno_direct)
+
+
+def _classify_connector_resolution(
+    *,
+    begin_id: int | None,
+    end_id: int | None,
+    used_ooxml_direct: bool,
+    used_uno_direct: bool,
+    used_heuristic: bool,
+) -> tuple[int | None, int | None, str, float]:
+    """Classify connector provenance once endpoint resolution is complete."""
+
+    if used_heuristic:
+        return (begin_id, end_id, "heuristic", 0.6)
+    if used_ooxml_direct and used_uno_direct:
+        return (begin_id, end_id, "partial", 0.9)
+    if used_ooxml_direct:
+        return (begin_id, end_id, "direct", 1.0)
+    if used_uno_direct:
+        return (begin_id, end_id, "direct", 0.9)
+    return (begin_id, end_id, "heuristic", 0.6)
 
 
 def _match_chart_geometries(

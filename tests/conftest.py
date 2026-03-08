@@ -18,6 +18,7 @@ SKIP_COM_TESTS = os.getenv("SKIP_COM_TESTS") == "1"
 FORCE_COM_TESTS = os.getenv("FORCE_COM_TESTS") == "1"
 RUN_RENDER_SMOKE = os.getenv("RUN_RENDER_SMOKE") == "1"
 RUN_LIBREOFFICE_SMOKE = os.getenv("RUN_LIBREOFFICE_SMOKE") == "1"
+FORCE_LIBREOFFICE_SMOKE = os.getenv("FORCE_LIBREOFFICE_SMOKE") == "1"
 
 
 def _markexpr_requests_com(markexpr: str) -> bool:
@@ -165,6 +166,10 @@ def _libreoffice_skip_reason() -> str | None:
             "LibreOffice smoke tests disabled; set RUN_LIBREOFFICE_SMOKE=1 to enable."
         )
     if not _has_libreoffice_runtime():
+        if FORCE_LIBREOFFICE_SMOKE:
+            raise RuntimeError(
+                "LibreOffice runtime is unavailable but FORCE_LIBREOFFICE_SMOKE=1 is set."
+            )
         return "LibreOffice runtime is unavailable."
     return None
 

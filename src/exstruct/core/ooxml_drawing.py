@@ -5,8 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Literal
-from xml.etree import ElementTree
 from zipfile import ZipFile
+
+from defusedxml import ElementTree
 
 from ..models import ChartSeries
 
@@ -19,6 +20,8 @@ _NS = {
     "xdr": "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing",
 }
 _EMU_PER_POINT = 12700.0
+_DEFAULT_COLUMN_WIDTH_POINTS = 48.0
+_DEFAULT_ROW_HEIGHT_POINTS = 15.0
 _CHART_TAGS = {
     "areaChart",
     "barChart",
@@ -178,23 +181,26 @@ def _parse_sheet_drawing(archive: ZipFile, drawing_path: str) -> SheetDrawingDat
         }:
             continue
         if (shape_node := anchor.find("xdr:sp", _NS)) is not None:
-            shape_info = _parse_shape_node(shape_node)
+            shape_info = _parse_shape_node(anchor, shape_node)
             if shape_info is not None:
                 shapes.append(shape_info)
             continue
         if (connector_node := anchor.find("xdr:cxnSp", _NS)) is not None:
-            connector_info = _parse_connector_node(connector_node)
+            connector_info = _parse_connector_node(anchor, connector_node)
             if connector_info is not None:
                 connectors.append(connector_info)
             continue
         if (graphic_frame := anchor.find("xdr:graphicFrame", _NS)) is not None:
-            chart_info = _parse_chart_node(archive, graphic_frame, rel_map)
+            chart_info = _parse_chart_node(archive, anchor, graphic_frame, rel_map)
             if chart_info is not None:
                 charts.append(chart_info)
     return SheetDrawingData(shapes=shapes, connectors=connectors, charts=charts)
 
 
-def _parse_shape_node(node: ElementTree.Element) -> OoxmlShapeInfo | None:
+def _parse_shape_node(
+    anchor: ElementTree.Element,
+    node: ElementTree.Element,
+) -> OoxmlShapeInfo | None:
     """Parse an OOXML shape node into an ``OoxmlShapeInfo`` record."""
 
     c_nv_pr = node.find("xdr:nvSpPr/xdr:cNvPr", _NS)
@@ -204,6 +210,13 @@ def _parse_shape_node(node: ElementTree.Element) -> OoxmlShapeInfo | None:
     name = c_nv_pr.attrib.get("name", f"Shape {drawing_id or 0}")
     left, top, width, height, rotation, flip_h, flip_v = _parse_sp_geometry(
         node.find("xdr:spPr", _NS)
+    )
+    left, top, width, height = _merge_anchor_geometry(
+        anchor,
+        left=left,
+        top=top,
+        width=width,
+        height=height,
     )
     ref = DrawingShapeRef(
         drawing_id=drawing_id or 0,
@@ -226,7 +239,10 @@ def _parse_shape_node(node: ElementTree.Element) -> OoxmlShapeInfo | None:
     )
 
 
-def _parse_connector_node(node: ElementTree.Element) -> OoxmlConnectorInfo | None:
+def _parse_connector_node(
+    anchor: ElementTree.Element,
+    node: ElementTree.Element,
+) -> OoxmlConnectorInfo | None:
     """Parse an OOXML connector node into an ``OoxmlConnectorInfo`` record."""
 
     c_nv_pr = node.find("xdr:nvCxnSpPr/xdr:cNvPr", _NS)
@@ -236,6 +252,13 @@ def _parse_connector_node(node: ElementTree.Element) -> OoxmlConnectorInfo | Non
     name = c_nv_pr.attrib.get("name", f"Connector {drawing_id or 0}")
     left, top, width, height, rotation, flip_h, flip_v = _parse_sp_geometry(
         node.find("xdr:spPr", _NS)
+    )
+    left, top, width, height = _merge_anchor_geometry(
+        anchor,
+        left=left,
+        top=top,
+        width=width,
+        height=height,
     )
     ref = DrawingShapeRef(
         drawing_id=drawing_id or 0,
@@ -277,7 +300,10 @@ def _parse_connector_node(node: ElementTree.Element) -> OoxmlConnectorInfo | Non
 
 
 def _parse_chart_node(
-    archive: ZipFile, node: ElementTree.Element, rel_map: dict[str, str]
+    archive: ZipFile,
+    anchor: ElementTree.Element,
+    node: ElementTree.Element,
+    rel_map: dict[str, str],
 ) -> OoxmlChartInfo | None:
     """Parse an OOXML graphic-frame chart node into chart metadata."""
 
@@ -294,6 +320,13 @@ def _parse_chart_node(
     chart_root = ElementTree.fromstring(archive.read(target))
     left, top, width, height, _rotation, _flip_h, _flip_v = _parse_xfrm_geometry(
         node.find("xdr:xfrm", _NS)
+    )
+    left, top, width, height = _merge_anchor_geometry(
+        anchor,
+        left=left,
+        top=top,
+        width=width,
+        height=height,
     )
     return OoxmlChartInfo(
         name=name,
@@ -403,15 +436,18 @@ def _extract_chart_series(chart_root: ElementTree.Element) -> list[ChartSeries]:
             literal_name = series_node.findtext(
                 "c:tx/c:v", default=None, namespaces=_NS
             )
-        x_range = series_node.findtext(
-            "c:cat/c:numRef/c:f", default=None, namespaces=_NS
+        x_range = _extract_series_range(
+            series_node,
+            "c:xVal/c:numRef/c:f",
+            "c:xVal/c:strRef/c:f",
+            "c:cat/c:numRef/c:f",
+            "c:cat/c:strRef/c:f",
         )
-        if x_range is None:
-            x_range = series_node.findtext(
-                "c:cat/c:strRef/c:f", default=None, namespaces=_NS
-            )
-        y_range = series_node.findtext(
-            "c:val/c:numRef/c:f", default=None, namespaces=_NS
+        y_range = _extract_series_range(
+            series_node,
+            "c:yVal/c:numRef/c:f",
+            "c:yVal/c:strRef/c:f",
+            "c:val/c:numRef/c:f",
         )
         series.append(
             ChartSeries(
@@ -437,6 +473,19 @@ def _extract_chart_text(node: ElementTree.Element | None) -> str | None:
     if not texts:
         return None
     return "".join(texts)
+
+
+def _extract_series_range(
+    node: ElementTree.Element,
+    *paths: str,
+) -> str | None:
+    """Return the first matching series formula path."""
+
+    for path in paths:
+        value = node.findtext(path, default=None, namespaces=_NS)
+        if isinstance(value, str):
+            return value
+    return None
 
 
 def _format_shape_type(node: ElementTree.Element) -> str | None:
@@ -491,6 +540,85 @@ def _parse_xfrm_geometry(
     flip_h = xfrm.attrib.get("flipH") == "1"
     flip_v = xfrm.attrib.get("flipV") == "1"
     return (left, top, width, height, rotation, flip_h, flip_v)
+
+
+def _merge_anchor_geometry(
+    anchor: ElementTree.Element,
+    *,
+    left: int | None,
+    top: int | None,
+    width: int | None,
+    height: int | None,
+) -> tuple[int | None, int | None, int | None, int | None]:
+    """Prefer child transform geometry, but fill missing/zero values from anchors."""
+
+    anchor_left, anchor_top, anchor_width, anchor_height = _parse_anchor_geometry(
+        anchor
+    )
+    resolved_left = left if left not in {None, 0} else anchor_left
+    resolved_top = top if top not in {None, 0} else anchor_top
+    resolved_width = width if width not in {None, 0} else anchor_width
+    resolved_height = height if height not in {None, 0} else anchor_height
+    return (resolved_left, resolved_top, resolved_width, resolved_height)
+
+
+def _parse_anchor_geometry(
+    anchor: ElementTree.Element,
+) -> tuple[int | None, int | None, int | None, int | None]:
+    """Parse approximate placement from a parent drawing anchor."""
+
+    tag = _local_name(anchor.tag)
+    if tag == "absoluteAnchor":
+        pos = anchor.find("xdr:pos", _NS)
+        ext = anchor.find("xdr:ext", _NS)
+        return (
+            _emu_attr_to_points(pos, "x"),
+            _emu_attr_to_points(pos, "y"),
+            _emu_attr_to_points(ext, "cx"),
+            _emu_attr_to_points(ext, "cy"),
+        )
+    if tag == "oneCellAnchor":
+        marker = anchor.find("xdr:from", _NS)
+        ext = anchor.find("xdr:ext", _NS)
+        left, top = _marker_to_points(marker)
+        return (
+            left,
+            top,
+            _emu_attr_to_points(ext, "cx"),
+            _emu_attr_to_points(ext, "cy"),
+        )
+    if tag == "twoCellAnchor":
+        start = _marker_to_points(anchor.find("xdr:from", _NS))
+        end = _marker_to_points(anchor.find("xdr:to", _NS))
+        if start[0] is None or start[1] is None or end[0] is None or end[1] is None:
+            return (None, None, None, None)
+        return (
+            start[0],
+            start[1],
+            max(end[0] - start[0], 0),
+            max(end[1] - start[1], 0),
+        )
+    return (None, None, None, None)
+
+
+def _marker_to_points(
+    marker: ElementTree.Element | None,
+) -> tuple[int | None, int | None]:
+    """Convert an OOXML anchor marker to approximate point coordinates."""
+
+    if marker is None:
+        return (None, None)
+    col = _find_int_text(marker, "xdr:col")
+    col_off = _find_int_text(marker, "xdr:colOff")
+    row = _find_int_text(marker, "xdr:row")
+    row_off = _find_int_text(marker, "xdr:rowOff")
+    if col is None or row is None:
+        return (None, None)
+    left = int(
+        round(col * _DEFAULT_COLUMN_WIDTH_POINTS + (col_off or 0) / _EMU_PER_POINT)
+    )
+    top = int(round(row * _DEFAULT_ROW_HEIGHT_POINTS + (row_off or 0) / _EMU_PER_POINT))
+    return (left, top)
 
 
 def _read_relationships(archive: ZipFile, rels_path: str) -> dict[str, str]:
@@ -577,6 +705,20 @@ def _int_attr(node: ElementTree.Element | None, attr: str) -> int | None:
     if node is None:
         return None
     raw = node.attrib.get(attr)
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _find_int_text(node: ElementTree.Element | None, path: str) -> int | None:
+    """Parse an integer child text value when present."""
+
+    if node is None:
+        return None
+    raw = node.findtext(path, default=None, namespaces=_NS)
     if raw is None:
         return None
     try:
