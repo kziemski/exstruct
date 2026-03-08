@@ -1,5 +1,41 @@
 # Todo
 
+## 2026-03-08 PR #76 post-push triage
+
+### Planning
+
+- [x] 最新 GitHub Actions run / Codacy / review thread を再収集する
+- [x] blocking issue と minor nit を切り分ける
+- [x] `tasks/feature_spec.md` に post-push follow-up contract を追記する
+- [ ] `ExStructEngine.process(...)` が engine-level `extract(...)` seam を bypass しないように修正する
+- [ ] `tests/engine/test_engine.py::test_engine_process_normalizes_string_paths` の回帰を再現・固定する
+- [ ] `_read_relationships(...)` を typed relationship へ変更し、call site を relationship type 判定に切り替える
+- [ ] `tests/conftest.py` の LibreOffice runtime probe で broad `except Exception` をやめ、unexpected regression を surfacing する
+- [ ] `docs/api.md` の CLI 対応例に `--include-backend-metadata` を反映する
+- [ ] `_merge_anchor_geometry(...)` を anchor-first placement に揃え、位置マッチング回帰 test を追加する
+- [ ] `src/exstruct/core/libreoffice.py` の subprocess 呼び出しを trust-boundary 明示付き helper / suppression 方針で整理し、Codacy blocking issue を解消する
+
+### Review
+
+- 最新 GitHub Actions run は `2026-03-08` の `pytest` run `22814113410`
+  - `test (ubuntu-latest, 3.12)` が `Run tests (non-COM suite)` で失敗
+  - 実失敗は `tests/engine/test_engine.py::test_engine_process_normalizes_string_paths`
+  - 例外は `ValueError: Excel file format cannot be determined, you must specify an engine manually.`
+  - `windows-latest` jobs は fail-fast により `cancelled`
+- Codacy は PR #76 に対して 4 件の `Error` を返している
+  - 対象はすべて `src/exstruct/core/libreoffice.py`
+  - ルールは `dangerous-subprocess-use-audit` と `dangerous-subprocess-use-tainted-env-args`
+  - `shell=True` や command injection は現状見当たらないため、根本論点は subprocess の trust-boundary を code 上で明示できていない点と判断する
+- 追加 review で妥当と判断した項目
+  - `engine.process(...)` が engine-level `extract(...)` seam を bypass して test contract を壊している
+  - `_read_relationships(...)` が `Type` を捨て、filename 推測に依存している
+  - `tests/conftest.py` の broad `except Exception` が probe regression を skip に潰しうる
+  - `docs/api.md` の CLI 例が `include_backend_metadata=True` と一致していない
+  - `_merge_anchor_geometry(...)` が left/top を child-first のままにしている
+- 今回 scope 外に置く項目
+  - `pytest.MonkeyPatch` への import cleanup
+  - `_start_soffice_startup_attempt(...)` の readability-only helper 分割
+
 ## 2026-03-08 PR #76 triage
 
 ### Planning

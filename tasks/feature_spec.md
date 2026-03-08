@@ -70,6 +70,59 @@
   - observability:
     - append ではなく unmatched 件数を debug logging し、snapshot-backed emit contract を変えずに観測できるようにする
 
+### 2026-03-08 post-push follow-up triage
+
+#### Issue
+
+- PR #76 の最新 GitHub Actions run `22814113410` は coverage ではなく test failure で落ちている。
+  - `test (ubuntu-latest, 3.12)` の失敗は `tests/engine/test_engine.py::test_engine_process_normalizes_string_paths`
+  - `windows-latest` matrix は fail-fast により cancel
+- Codacy は PR #76 に対して `src/exstruct/core/libreoffice.py` の subprocess security 指摘を 4 件返している。
+  - `_run_bridge(...)`
+  - `_probe_soffice_runtime(...)`
+  - `_probe_libreoffice_bridge_failure(...)`
+  - `_start_soffice_startup_attempt(...)`
+- 追加 review では、未 resolve thread が 2 件、非 thread の actionable comment が 2 件ある。
+  - `_read_relationships()` が Relationship Type を捨てている
+  - `tests/conftest.py` が broad `except Exception` で probe regression を skip に潰しうる
+  - `docs/api.md` の CLI 例が `--include-backend-metadata` を落としている
+  - `_merge_anchor_geometry(...)` が left/top を child transform 優先のまま
+
+#### Accepted follow-ups
+
+- `ExStructEngine.process(...)` は path 正規化後の実 extraction を `ExStructEngine.extract(...)` と同等の override 可能な seam から呼ぶ。
+  - per-call validation (`mode`, `pdf`, `image`, `auto_page_breaks_dir`) は `process(...)` 側で先に確定してよい
+  - ただし engine-level test が monkeypatch した `extract(...)` を bypass して実 pipeline に落ちる状態は contract regression とみなす
+  - regression test:
+    - `str` 入力 path
+    - `pdf=True`
+    - `image=True`
+    - `export(...)` monkeypatch
+    - 実ファイル内容に依存せず real pipeline へ入らないこと
+- OOXML relationships は `target` だけでなく `type` を保持する structured model にする。
+  - `_read_relationships(...)` は `dict[str, Relationship]` 相当を返す
+  - call site は filename/prefix 推測ではなく relationship type URI で worksheet/drawing/chart/vml を判定する
+  - 少なくとも `vmlDrawing*.vml` や non-worksheet relation を worksheet drawing と誤認しない
+- `tests/conftest.py` の LibreOffice runtime probe は availability failure だけを skip 扱いにする。
+  - `resolve_python_path(...)` では expected runtime-unavailable 系だけを `False` に落とす
+  - `soffice --version` probe でも expected subprocess availability failure だけを `False` に落とす
+  - unexpected exception は skip ではなく test failure として surfacing する
+- `docs/api.md` の Python/CLI 対応例は `include_backend_metadata=True` に対して `--include-backend-metadata` を必ず対にする。
+- OOXML drawing placement は parent anchor を sheet placement の source of truth とする。
+  - `left/top` は anchor (`absoluteAnchor` / `oneCellAnchor` / `twoCellAnchor`) を優先する
+  - child `xfrm` の `off` は anchor 欠落時の fallback に留める
+  - `width/height/rotation/flip` は現行どおり child geometry を補助情報として使ってよい
+- LibreOffice runtime subprocess は shell injection ではなく trust-boundary 明確化の issue として扱う。
+  - すべて `shell=False` + argv list を維持する
+  - 実行ファイル path は operator-configured runtime (`EXSTRUCT_LIBREOFFICE_PATH`, `EXSTRUCT_LIBREOFFICE_PYTHON_PATH`, bundled bridge path) として正規化・存在確認してから使う
+  - workbook path を含む user data は argv element としてのみ渡し、command string 連結に使わない
+  - static analyzer がなお誤検知する場合は、helper 集約後に最小スコープの suppression/comment で理由を明示する
+
+#### Out of scope for this post-push follow-up
+
+- `tests/core/test_libreoffice_backend.py` の `_pytest.monkeypatch.MonkeyPatch` を `pytest.MonkeyPatch` に寄せる style cleanup
+- `_start_soffice_startup_attempt(...)` の helper 分割だけを目的にした complexity refactor
+
 ### Out of scope for this follow-up
 
 - `ShapeData` / `ChartData` を dataclass/Pydantic へ全面変更するリファクタ
