@@ -1,5 +1,60 @@
 # Feature Spec
 
+## 2026-03-08 PR #76 follow-up triage
+
+### Issue
+
+- PR #76 (`Add libreoffice extraction mode`) には、CI failure、Codacy 指摘、Codex/CodeRabbit review 指摘が複数残っている。
+- 2026-03-08 時点の GitHub Actions failure は test failure ではなく、`test (ubuntu-latest, 3.12)` の coverage `78.62% < 80%` によるもの。
+- Codacy は PR #76 に対して 1 件のみ `Error` を返しており、`src/exstruct/core/ooxml_drawing.py` の `xml.etree.ElementTree` 利用に対する XML hardening 指摘である。
+
+### Goal
+
+- 実害または公開契約の不整合がある指摘だけを follow-up scope に採用する。
+- 採用した指摘は、仕様・検証観点・運用タスクをこの spec/todo に明文化する。
+- スタイル提案や大規模リファクタ提案は、現時点で不具合根拠が無い限り scope から外す。
+
+### Accepted follow-ups
+
+- `ExStructEngine.process(...)` で per-call 指定した `auto_page_breaks_dir` / `include_auto_page_breaks` 相当の override は、validation と extraction の両方で同じ値を使う。
+  - 現状は validation 時のみ per-call override を考慮し、`extract()` 呼び出しには伝播しないため、通常モードでも抽出対象と出力先が不整合になりうる。
+  - follow-up では `extract()` 側に明示 override を渡せるようにするか、同等の一貫した内部経路へ整理する。
+- LibreOffice guardrail の unit test は、少なくとも以下を直接カバーする。
+  - `pdf=True`
+  - `image=True`
+  - `pdf/image + auto_page_breaks_dir`
+  - `.xls + mode="libreoffice"`
+  - non-`libreoffice` passthrough
+  - `validate_libreoffice_extraction_request(...)` の direct coverage
+- `docs/cli.md` と `docs/api.md` は shipped surface に一致させる。
+  - `docs/cli.md` に `--include-backend-metadata` を追加する。
+  - `docs/api.md` の重複した旧 `to_json(...)` signature を削除する。
+- `libreoffice-linux-smoke` job は workflow 定義だけでなく merge gate としても一貫して扱う。
+  - workflow step は skip を許容せず、skip が発生したら job failure にする。
+  - repo ruleset / branch protection に required status check を追加するまでは、「required job」は repository contract として未成立であることを明記する。
+- LibreOffice connector reconstruction は、片側だけ OOXML direct resolve できた場合でも残り片側を UNO / heuristic で継続解決する。
+- connector direction 推定では、OOXML ベクトルが `(0, 0)` の場合を unknown 扱いとし、任意の方角に丸めない。
+- OOXML drawing geometry は parent anchor (`oneCellAnchor` / `twoCellAnchor`) を canonical placement source とする。
+  - child `xfrm` は width/height/rotation などの補助情報に限定する。
+- OOXML chart series extraction は scatter/bubble 系の `c:xVal` / `c:yVal` も拾う。
+- LibreOffice session 起動では、長寿命 `soffice` child の `stderr` pipe を未読のまま保持しない。
+- `confidence` は public model / generated schema ともに `0.0 <= confidence <= 1.0` を強制する。
+  - source of truth は model constraint とし、schema は生成物として同期する。
+- OOXML parser hardening として、user-provided workbook 内 XML の parse は `defusedxml` ベースへ切り替える。
+
+### Investigation follow-ups
+
+- `snapshots` が存在するシートで OOXML-only shape / connector を append すべきかは、`UNO canonical order` 契約との整合を再確認してから決める。
+- `_reserve_tcp_port()` の race は理論上成立するため、hold-open reservation へ変えるか、現行実装の許容理由を明文化するかを follow-up で判断する。
+
+### Out of scope for this follow-up
+
+- `ShapeData` / `ChartData` を dataclass/Pydantic へ全面変更するリファクタ
+- `LibreOfficeSession.load_workbook()` / `close_workbook()` の typed handle 化だけを目的にした API 再設計
+- `normalize_path(...)` docstring のみを目的とした style fix
+- `.xls + mode="libreoffice"` の例外型を `ValueError` から `ConfigError` へ変更すること
+- `get_charts(..., mode=...)` の未使用引数に対する docstring-only 修正
+
 ## 2026-03-06 backend metadata output follow-up
 
 - shape/chart backend metadata fields (`provenance`, `approximation_level`, `confidence`) remain part of the internal models.

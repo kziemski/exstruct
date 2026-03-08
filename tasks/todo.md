@@ -1,5 +1,44 @@
 # Todo
 
+## 2026-03-08 PR #76 triage
+
+### Planning
+
+- [x] PR #76 の CI / Codacy / review 指摘を収集する
+- [x] 各指摘を `feat/libreoffice-mode` の現行コードと GitHub ruleset に照らして妥当性判定する
+- [x] follow-up に採用する項目を `tasks/feature_spec.md` に仕様として整理する
+- [ ] `ExStructEngine.process(...)` と `extract(...)` の auto page-break override 不整合を修正する
+- [ ] LibreOffice guardrail の test を拡張し、`image` / `.xls` / passthrough / extraction validator 分岐を直接カバーする
+- [ ] `docs/cli.md` / `docs/api.md` の public surface 差分を解消する
+- [ ] `confidence` の model constraint を追加し、schema 生成物と関連 test を同期する
+- [ ] OOXML parsing hardening (`defusedxml`, anchor placement, scatter/bubble `xVal/yVal`) を実装する
+- [ ] connector endpoint / direction の edge case を修正する
+- [ ] LibreOffice session の `stderr` handling と smoke skip gate を harden する
+- [ ] GitHub ruleset に `libreoffice-linux-smoke` を required status check として追加する
+- [ ] OOXML-only shape/connector merge 方針と port reservation race の扱いを追加調査する
+
+### Review
+
+- 2026-03-08 時点の CI failure は `test (ubuntu-latest, 3.12)` の coverage 不足 (`78.62% < 80%`) であり、pytest 自体は `763 passed, 3 skipped, 11 deselected` だった
+- Codacy は PR #76 に対して 1 件のみ `Error` を返し、対象は `src/exstruct/core/ooxml_drawing.py` の XML parser hardening だった
+- 妥当と判断した主な指摘:
+  - `process(..., auto_page_breaks_dir=...)` の override が extraction に伝播していない
+  - guardrail test の分岐不足
+  - `docs/cli.md` / `docs/api.md` の公開ドキュメントずれ
+  - `libreoffice-linux-smoke` の skip 許容と ruleset 未設定
+  - connector 片側未解決時の早期 return
+  - `(dx, dy) = (0, 0)` の方向推定
+  - `stderr=subprocess.PIPE` 未ドレイン
+  - OOXML anchor placement 未使用
+  - scatter/bubble `xVal` / `yVal` 未対応
+  - `confidence` 範囲未制約
+  - `xml.etree.ElementTree` の hardening 未対応
+- 今回 scope 外とした主な指摘:
+  - `ShapeData` / `ChartData` の dataclass 化
+  - `load_workbook()` / `close_workbook()` typed handle 化
+  - `normalize_path()` docstring のみの修正
+  - `.xls` 例外型の `ConfigError` への変更
+
 ## 2026-03-06 Backend Metadata Output Follow-up
 
 ### Planning
