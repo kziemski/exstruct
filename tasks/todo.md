@@ -180,3 +180,24 @@
 - 追加検証:
   - `uv run pytest tests/core/test_libreoffice_backend.py tests/core/test_pipeline_fallbacks.py tests/test_conftest_libreoffice_runtime.py -q` -> `22 passed`
   - `uv run task precommit-run` -> `ruff / ruff-format / mypy passed`
+## 2026-03-08 Linux LibreOffice CI smoke gate
+
+### Planning
+
+- [x] `tasks/feature_spec.md` に Linux CI smoke contract を追加し、`mode="libreoffice"` の required runtime gate を仕様化する
+- [x] `.github/workflows/pytest.yml` に `libreoffice-linux-smoke` job を追加し、既存 unit matrix から分離する
+- [x] `ubuntu-24.04` 上で `libreoffice` / `python3-uno` を導入して `RUN_LIBREOFFICE_SMOKE=1` で smoke test を実行する
+- [x] smoke job は `tests/core/test_libreoffice_smoke.py` を対象にし、coverage upload とは分離する
+- [x] README / README.ja / `docs/agents/TEST_REQUIREMENTS.md` に Linux required smoke job の運用を追記する
+- [x] 変更内容の最終確認と検証コマンド結果を Review に反映する
+
+### Review
+
+- GitHub Actions に required Linux smoke job `libreoffice-linux-smoke` を追加し、`ubuntu-24.04` で LibreOffice runtime を導入して `pytest tests/core/test_libreoffice_smoke.py -m libreoffice` を実行する構成にした
+- 既存の Linux/Windows unit matrix と Codecov upload はそのまま維持し、LibreOffice smoke は別 job に分離した
+- `tasks/feature_spec.md` に Linux CI smoke contract を追加し、fallback 成功ではなく rich extraction 成功を merge 条件にする方針を明文化した
+- README / 日本語 README / test requirements に required Linux smoke job と実行コマンドを追記した
+- 追加検証:
+  - `python -c "import yaml; yaml.safe_load(open('.github/workflows/pytest.yml', encoding='utf-8'))"` 相当の YAML parse -> `yaml-ok`
+  - `uv run pytest tests/test_conftest_libreoffice_runtime.py -q` -> `1 passed`
+  - `uv run task precommit-run` -> `ruff / ruff-format / mypy passed`

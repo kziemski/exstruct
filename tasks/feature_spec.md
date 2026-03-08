@@ -405,3 +405,29 @@ pairing ルールは次のとおり。
 - bridge probe 成功時だけ system Python fallback が採用される unit test を追加する。
 - `uno` import は通るが bridge probe が `SyntaxError` で失敗する候補を拒否する regression test を追加する。
 - `EXSTRUCT_LIBREOFFICE_PYTHON_PATH` 指定時も probe failure を fail-fast で surfacing する test を追加する。
+
+## 2026-03-08 Linux LibreOffice CI smoke gate
+
+### Goal
+
+- `mode="libreoffice"` の rich extraction が Linux CI 上で実ランタイム smoke により継続的に保証されるようにする。
+- probe unit test だけでなく、GitHub Actions 上で `soffice` 起動、UNO bridge、sample workbook 抽出までを必須ゲートにする。
+
+### CI contract
+
+- GitHub Actions に Linux 専用の required job `libreoffice-linux-smoke` を追加する。
+- 当該 job は既存の unit matrix とは分離し、coverage upload の責務を持たない。
+- runner は `ubuntu-24.04` に固定する。`ubuntu-latest` の image 切り替えに依存しない。
+- runtime 準備として `libreoffice` と `python3-uno` を apt で導入する。
+- smoke 実行時は `RUN_LIBREOFFICE_SMOKE=1` を設定し、`tests/core/test_libreoffice_smoke.py` を skip なしで実行する。
+- smoke 失敗は fallback workbook 成功ではなく CI failure と見なし、PR merge を block する。
+
+### Verification target
+
+- `sample/flowchart/sample-shape-connector.xlsx` で connector の `begin_id/end_id` が復元される。
+- `sample/basic/sample.xlsx` で chart title / series / geometry が取得される。
+- `pytest.mark.libreoffice` の runtime gate は CI では disable せず、runtime unavailable の場合も job failure となる。
+
+### Documentation
+
+- README / README.ja / test requirements / task log に、Linux required smoke job の存在と実行条件を記載する。
