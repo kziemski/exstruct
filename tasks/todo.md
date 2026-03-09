@@ -467,3 +467,37 @@
   - `mkdocs.yml:50`
     - README nav 削除と `docs/README.*` 削除は docs build broken ではない
     - 論点は docs 導線再編の説明不足 / PR scope であり、必要なら review comment で意図を補足して resolve する
+
+## 2026-03-09 PR #76 Codacy command-injection triage
+
+### Planning
+
+- [x] `scripts/codacy_issues.py --pr 76 --min-level Warning` で PR #76 の Codacy 残件を再取得し、issue が 1 件だけ残っていることを確認する
+- [x] `src/exstruct/core/libreoffice.py:825` の sink が `_run_bridge_probe_subprocess(...)` であることを確認し、現行 helper/test の契約を点検する
+- [x] Codacy の `dangerous-subprocess-use-tainted-env-args` を false positive 寄りと判断しつつ、まずは suppression ではなく trust-boundary 明確化で解く方針を決める
+- [ ] probe helper の `subprocess.run(...)` から explicit `env=` を外し、UTF-8 強制を固定 argv オプションへ移す
+- [ ] probe helper 専用の regression test を追加し、fixed argv と `env` 非指定を確認する
+- [ ] 既存の probe env test を新契約へ更新し、互換性判定まわりの高レベル test が壊れていないことを確認する
+- [ ] `uv run pytest tests/core/test_libreoffice_backend.py tests/core/test_libreoffice_bridge.py -q` を実行する
+- [ ] `uv run task precommit-run` を実行する
+- [ ] push 後に `python scripts/codacy_issues.py --pr 76 --min-level Warning` を再実行し、同 issue が消えたことを確認する
+- [ ] それでも Codacy が同じ sink を報告する場合だけ、対象 call site に rule-specific suppression を追加する
+
+### Review
+
+- 2026-03-09 時点の Codacy 出力は次の 1 件:
+  - `Error | src/exstruct/core/libreoffice.py:825 | Semgrep_python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args | Security | Detected subprocess function 'run' with user controlled data.`
+- line 825 は `_run_bridge_probe_subprocess(...)` の `subprocess.run(...)` に対応している。
+- 現行コードの安全性評価:
+  - `shell=False`
+  - command string 組み立てなし
+  - executable は `_validated_runtime_path(...)` を通す
+  - bridge script は repository 内の固定 path
+  - probe helper は workbook path を受け取らない
+- 一方で、Codacy は次を taint と見ている可能性が高い:
+  - `EXSTRUCT_LIBREOFFICE_PYTHON_PATH` / `sys.executable` / `shutil.which(...)` 由来の `python_path`
+  - `_build_subprocess_env(...)` が allowlist 経由で取り込む `PATH` などの inherited env
+- 採用方針:
+  - まず probe helper から explicit env 注入を外し、UTF-8 制御を argv 化して analyzer の taint 経路を減らす
+  - それでも残る場合だけ narrow suppression を入れる
+  - いきなり suppression だけで終わらせない

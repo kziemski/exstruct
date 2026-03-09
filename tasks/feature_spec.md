@@ -725,3 +725,47 @@ pairing ルールは次のとおり。
 
 - `mkdocs.yml` / `docs/index.md` / `docs/README.en.md` / `docs/README.ja.md` の変更は docs build broken ではない。nav 参照と対象 file 削除が同期しているためである。
 - この thread は機能バグとしては採用せず、必要なら「docs 導線再編をこの PR に残すか、別 PR に分離するか」の説明で解く。
+
+## 2026-03-09 PR #76 Codacy command-injection follow-up
+
+### Issue
+
+- `python scripts/codacy_issues.py --pr 76 --min-level Warning` の 2026-03-09 時点の結果で、PR #76 に 1 件だけ `Security / Command Injection` が残っている。
+- 指摘位置は `src/exstruct/core/libreoffice.py:825` で、`_run_bridge_probe_subprocess(...)` の `subprocess.run(...)` が対象になっている。
+- 現行実装は `shell=False` と固定 argv を使っており、実害としての command injection というより、Semgrep/Codacy が `python_path` と `env` の trust boundary を追い切れていない false positive 寄りの状態である可能性が高い。
+
+### Goal
+
+- LibreOffice bridge probe の subprocess 呼び出しについて、Codacy が critical と判定しない形まで trust boundary を明確化する。
+- 既存の runtime 互換性 probe 契約と、override/system candidate を fail-fast で reject する挙動は維持する。
+- 修正スコープはまず probe helper に限定し、extraction/handshake の振る舞いは不用意に広げない。
+
+### Probe subprocess contract
+
+- `_run_bridge_probe_subprocess(...)` は、explicit な inherited `env=` を `subprocess.run(...)` に渡さない。
+- probe subprocess の UTF-8 強制は `PYTHONIOENCODING` の環境変数注入ではなく、固定 argv 側の Python runtime option で行う。
+- probe subprocess に渡す argv は次を満たす。
+  - 実行ファイルは `_validated_runtime_path(...)` を通したローカル Python path
+  - bridge script は repository 内の固定 `_libreoffice_bridge.py`
+  - probe mode を示す fixed flag だけを追加する
+- `_resolve_python_path(...)` / `_probe_libreoffice_bridge_failure(...)` は、override と system candidate の reject/accept 判定責務を引き続き持つ。Codacy 回避のために probe 自体を弱めない。
+- 既存の `_build_subprocess_env(...)` allowlist は、少なくとも probe helper からは切り離す。必要なら extraction/handshake 専用 helper として残してよい。
+
+### Fallback policy
+
+- 上記の構造変更後も Codacy が同じ sink を `dangerous-subprocess-use-tainted-env-args` として報告する場合、その時点では static-analysis false positive と見なし、対象 call site に rule-specific suppression を最小範囲で追加する。
+- suppression を入れる場合は、次をコードコメントで明記する。
+  - `shell=False`
+  - 実行ファイルと script path は local validated path
+  - workbook path や command text を probe helper は受け取らない
+  - したがって command injection ではなく analyzer limitation である
+
+### Verification
+
+- `tests/core/test_libreoffice_backend.py` に、probe helper が fixed argv で動き、explicit `env` を渡さないことを確認する regression test を追加する。
+- 既存の `test_python_supports_libreoffice_bridge_filters_env` は、probe helper の新契約に合わせて置き換えるか、probe 用の「`env` を明示しない」検証へ更新する。
+- 互換性判定の高レベル契約は維持する。
+  - compatible runtime は probe success で accept される
+  - incompatible override は fail-fast する
+- 実装後は `uv run pytest tests/core/test_libreoffice_backend.py tests/core/test_libreoffice_bridge.py -q` と `uv run task precommit-run` を通す。
+- push 後に `python scripts/codacy_issues.py --pr 76 --min-level Warning` を再実行し、当該 issue が消えていることを確認する。
