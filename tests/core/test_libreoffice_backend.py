@@ -2009,6 +2009,31 @@ def test_resolve_python_path_checks_resolved_soffice_dir(
     assert _resolve_python_path(soffice_path) == real_python
 
 
+def test_resolve_python_path_detects_windows_python_core_bundle(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    """Verify that Windows LibreOffice `python-core-*` bundles are auto-detected."""
+
+    program_dir = tmp_path / "LibreOffice" / "program"
+    program_dir.mkdir(parents=True)
+    soffice_path = program_dir / "soffice.exe"
+    soffice_path.write_text("", encoding="utf-8")
+    bundled_python = program_dir / "python-core-3.11.11" / "bin" / "python.exe"
+    bundled_python.parent.mkdir(parents=True)
+    bundled_python.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "exstruct.core.libreoffice._python_supports_libreoffice_bridge",
+        lambda path: path == bundled_python,
+    )
+    monkeypatch.setattr(
+        "exstruct.core.libreoffice._system_python_candidates",
+        lambda: (),
+    )
+
+    assert _resolve_python_path(soffice_path) == bundled_python
+
+
 def test_resolve_python_path_falls_back_to_system_python(
     tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:

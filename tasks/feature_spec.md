@@ -827,6 +827,25 @@ pairing ルールは次のとおり。
 - `pytest.mark.libreoffice` smoke が runtime unavailable で skip されず、unavailable/incompatible 時は job failure になる。
 - sample workbook の shape/chart extraction smoke が Windows 上でも green になる。
 
+## 2026-03-10 Windows LibreOffice bundled Python auto-detection follow-up
+
+### Issue
+
+- `libreoffice-windows-smoke` で `soffice.exe --version` は通る一方、`tests/conftest.py::_has_libreoffice_runtime()` が `False` になり smoke test setup が `FORCE_LIBREOFFICE_SMOKE=1` で fail-fast した。
+- 既存の `_resolve_python_path(...)` は `program/python.exe` のような直下候補しか見ておらず、Windows LibreOffice install の `python-core-*` 配下 layout を拾えない。
+
+### Contract
+
+- bundled LibreOffice Python の auto-detection は、従来の `program/python.exe` / `python.bin` / `python` 直下候補を維持する。
+- 加えて Windows install で現れる `program/python-core-*/python.exe` と `program/python-core-*/bin/python.exe` 系候補も探索対象に含める。
+- 既存どおり、採用条件は `_python_supports_libreoffice_bridge(...)` probe success とする。
+- system Python fallback と explicit `EXSTRUCT_LIBREOFFICE_PYTHON_PATH` override contract は変えない。
+
+### Verification
+
+- `tests/core/test_libreoffice_backend.py` に `python-core-*` 配下の `python.exe` が auto-detection で選ばれる regression test を追加する。
+- `tests/test_conftest_libreoffice_runtime.py` と `python -m pre_commit run -a` を通し、runtime gate と型/lint を再確認する。
+
 ## 2026-03-09 PR #76 latest review + Codacy re-triage
 
 ### Review-thread cleanup

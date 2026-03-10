@@ -672,3 +672,24 @@
   - `python -c "import yaml; yaml.safe_load(open('.github/workflows/pytest.yml', encoding='utf-8')); print('yaml-ok')"` -> `yaml-ok`
   - `python -m pytest tests/test_conftest_libreoffice_runtime.py -q` -> `3 passed`
   - `python -m pre_commit run -a` -> `ruff / ruff-format / mypy passed`
+
+## 2026-03-10 Windows LibreOffice CI failure follow-up
+
+### Planning
+
+- [x] GitHub Actions の失敗 run / job / logs を確認し、失敗点を `libreoffice-windows-smoke` に絞る
+- [x] `tests/conftest.py` と `src/exstruct/core/libreoffice.py` を確認し、Windows runtime unavailable の原因を切り分ける
+- [x] bundled Python auto-detection が `python-core-*` 配下を探索していないギャップを埋める
+- [x] `tests/core/test_libreoffice_backend.py` に Windows layout の regression test を追加する
+- [x] 対象 pytest と `python -m pre_commit run -a` を実行する
+
+### Review
+
+- GitHub Actions run `22904348826` の job `libreoffice-windows-smoke` だけが failure で、`Install LibreOffice runtime` と `Verify LibreOffice runtime` は success、失敗は `tests/conftest.py::_has_libreoffice_runtime()` による setup error だった
+- 既存の `_resolve_python_path(...)` は `program/python.exe` 等の直下候補しか見ておらず、Windows LibreOffice install の `python-core-*` 配下 bundled Python を見逃していた
+- `src/exstruct/core/libreoffice.py` に `_bundled_python_candidates(program_dir)` を追加し、従来の直下候補に加えて `python-core-*/python.exe` / `python-core-*/bin/python.exe` を探索するようにした
+- `tests/core/test_libreoffice_backend.py` に Windows `python-core-*` layout の回帰 test を追加した
+- 検証:
+  - `python3 -m pytest tests/core/test_libreoffice_backend.py -q` -> `48 passed`
+  - `python3 -m pytest tests/test_conftest_libreoffice_runtime.py -q` -> `3 passed`
+  - `python3 -m pre_commit run -a` -> `ruff / ruff-format / mypy passed`

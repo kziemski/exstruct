@@ -697,9 +697,8 @@ def _resolve_python_path(soffice_path: Path) -> Path | None:
             )
         return override_path
     for program_dir in _soffice_program_dirs(soffice_path):
-        for candidate in ("python.exe", "python.bin", "python"):
-            path = program_dir / candidate
-            if path.exists() and _python_supports_libreoffice_bridge(path):
+        for path in _bundled_python_candidates(program_dir):
+            if _python_supports_libreoffice_bridge(path):
                 return path
     for python_candidate in _system_python_candidates():
         if _python_supports_libreoffice_bridge(python_candidate):
@@ -718,6 +717,35 @@ def _soffice_program_dirs(soffice_path: Path) -> tuple[Path, ...]:
     if resolved_parent not in program_dirs:
         program_dirs.append(resolved_parent)
     return tuple(program_dirs)
+
+
+def _bundled_python_candidates(program_dir: Path) -> tuple[Path, ...]:
+    """Return bundled LibreOffice Python candidates for a program directory."""
+
+    candidates: list[Path] = []
+    for file_name in ("python.exe", "python.bin", "python"):
+        path = program_dir / file_name
+        if path.exists() and path not in candidates:
+            candidates.append(path)
+    try:
+        child_dirs = sorted(
+            child
+            for child in program_dir.iterdir()
+            if child.is_dir() and child.name.startswith("python-core-")
+        )
+    except OSError:
+        return tuple(candidates)
+    for child_dir in child_dirs:
+        for relative_path in (
+            Path("python.exe"),
+            Path("python"),
+            Path("bin/python.exe"),
+            Path("bin/python"),
+        ):
+            bundled_path = child_dir / relative_path
+            if bundled_path.exists() and bundled_path not in candidates:
+                candidates.append(bundled_path)
+    return tuple(candidates)
 
 
 def _system_python_candidates() -> tuple[Path, ...]:
