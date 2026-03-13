@@ -12,7 +12,7 @@
 
 ### Review
 
-- PR #91 の未 resolve thread 15 件を再取得し、12 件を採用、2 件を重複、1 件を対応不要と判定した。
+- PR #91 の未 resolve thread 16 件を再取得し、13 件を採用、2 件を重複、1 件を対応不要と判定した。
 - 採用した修正:
   - `dev-docs/specs/excel-extraction.md`
     - `libreoffice` mode を追加
@@ -31,6 +31,8 @@
     - `CellRow.r` を 1-based に修正
     - pandas dtype を `dtype=str` に修正
     - merged cell の空値正規化を `" "` に修正
+    - 参照 spec 名を `dev-docs/specs/data-model.md` に修正
+    - Windows smoke contract の `soffice.com` 優先 / `soffice.exe` fallback を現行運用に合わせて修正
   - `dev-docs/specs/patch/model-migration-notes.md`
     - canonical model が `patch/models.py` に既にあり、`internal.py` に重複定義が残っている現状へ修正
     - 移行手順を「移設」ではなく「重複解消と import 統一」へ修正
@@ -51,8 +53,12 @@
     - `src/exstruct/mcp/patch_runner.py`
     - `src/exstruct/mcp/patch/service.py`
   - `git diff --check -- <changed files>` で whitespace error なしを確認
-- 未実施:
-  - GitHub への返信と resolve
+- GitHub:
+  - commit `1a8e6ba` を `origin/docs/adr` へ push 済み
+  - 既存 16 thread は resolve 済み
+  - 対応不要の PR Summary 指摘は thread reply 権限がなかったため、PR comment `#issuecomment-4052594372` で理由を補足した
+- 追加 follow-up:
+  - push 後に CodeRabbit から `test-requirements.md` へ 2 件の新規 thread が追加されたため、この後続修正で対応する
 
 ## 2026-03-13 AI agent document retention policy
 
